@@ -62,18 +62,18 @@
     .logo {
       font-family: var(--font-mono);
       font-weight: 600;
-      font-size: 0.95rem;
+      font-size: 1.05rem;
       color: var(--text);
       text-decoration: none;
       display: flex;
       align-items: center;
-      gap: 0.6rem;
+      gap: 0.7rem;
       letter-spacing: -0.01em;
     }
 
     .logo-img {
-      width: 28px;
-      height: 28px;
+      width: 40px;
+      height: 40px;
       object-fit: contain;
     }
 
@@ -250,6 +250,13 @@
       background: var(--accent);
       animation: blink 1.1s step-end infinite;
       vertical-align: text-bottom;
+    }
+    .perm-box {
+      border: 1px solid #f48120;
+      border-radius: 6px;
+      padding: 0.6rem 0.8rem;
+      margin: 0.4rem 0 0.6rem;
+      display: inline-block;
     }
 
     /* Sections */
@@ -509,7 +516,7 @@
   <section class="hero">
     <div class="hero-label fade-in">Kimi-K2.6 · Cloudflare Workers AI</div>
     <h1 class="fade-in delay-1">
-      An AI that lives<br>in your terminal
+      Kimi K2.6 + Cloudflare<br>in your terminal.<br>No middleman.
     </h1>
     <p class="hero-subtitle fade-in delay-2">
       Claude Code, except the model is Moonshot's open-weight Kimi running on your own Cloudflare account. No middleman. No subscriptions.
@@ -528,29 +535,41 @@
           <span class="terminal-title">zsh</span>
         </div>
         <div class="terminal-body" id="terminal">
+          <div class="term-dim" style="margin-bottom:0.6rem;">kimiflare · /help for commands · ctrl-c to exit · shift+tab to cycle modes</div>
+
           <div class="term-line">
-            <span class="term-prompt">$</span>
-            <span class="term-input">kimiflare what files are here?</span>
+            <span class="term-prompt">› </span>
+            <span class="term-input">what files are here?</span>
           </div>
-          <div class="term-output">
+          <div class="term-output" style="margin-left:0;">
             <span class="term-ok">✓</span> <span class="term-tool">glob</span>(*)<br>
             &nbsp;&nbsp;package.json&nbsp;&nbsp;src/index.ts&nbsp;&nbsp;src/server.ts
           </div>
+
           <div class="term-line">
-            <span class="term-prompt">$</span>
-            <span class="term-input">kimiflare add a /health endpoint</span>
+            <span class="term-prompt">› </span>
+            <span class="term-input">add a /health endpoint</span>
           </div>
-          <div class="term-output">
+          <div class="term-output" style="margin-left:0;">
             <span class="term-ok">✓</span> <span class="term-tool">read</span>(src/server.ts)<br>
             <span class="term-dim">◐</span> <span class="term-tool">edit</span> src/server.ts<br>
-            &nbsp;&nbsp;─── permission requested ───<br>
-            &nbsp;&nbsp;@@ -42,6 +42,10 @@<br>
-            &nbsp;&nbsp;&nbsp;+&nbsp;&nbsp;app.get('/health', …)<br>
-            &nbsp;&nbsp;────────────────────────────<br>
-            &nbsp;&nbsp;[Allow once] [Allow for session] [Deny]
+            <div class="perm-box">
+              <div style="color:#f48120;font-weight:600;margin-bottom:0.3rem;">Permission requested</div>
+              <div>tool: <span style="color:#a78bfa;">edit</span></div>
+              <div>action: edit src/server.ts</div>
+              <div style="margin:0.4rem 0;color:#9ca3af;">
+                @@ -42,6 +42,10 @@<br>
+                &nbsp;&nbsp;app.get('/', …)<br>
+                <span style="color:#4ade80;">+&nbsp;&nbsp;app.get('/health', (_, res) =&gt; res.json({ ok: true }))</span><br>
+                &nbsp;&nbsp;…
+              </div>
+              <div><span style="color:#f48120;">›</span> Allow once&nbsp;&nbsp;&nbsp;Allow for this session&nbsp;&nbsp;&nbsp;Deny</div>
+            </div>
           </div>
+
+          <div class="term-dim" style="margin-top:0.6rem;">[edit] model: k2.6 · effort: medium · in: 123 · out: 45 · ctx: 5% · $0.00012</div>
           <div class="term-line">
-            <span class="term-prompt">$</span>
+            <span class="term-prompt">› </span>
             <span class="term-input" id="typing"></span><span class="term-cursor"></span>
           </div>
         </div>
@@ -624,27 +643,17 @@
         <span class="code-lang">bash</span>
       </div>
       <div class="code-body">
-<span class="c"># Clone and build</span><br>
-<span class="v">git</span> clone https://github.com/sinameraji/kimiflare<br>
-<span class="v">cd</span> kimiflare && <span class="v">npm</span> install && <span class="v">npm</span> run build<br>
-<span class="v">npm</span> link<br>
+<span class="c"># Install</span><br>
+<span class="v">npm</span> install -g kimiflare<br>
 <br>
-<span class="c"># Configure credentials</span><br>
-<span class="v">export</span> <span class="k">CLOUDFLARE_ACCOUNT_ID</span>=...<br>
-<span class="v">export</span> <span class="k">CLOUDFLARE_API_TOKEN</span>=...<br>
-<br>
-<span class="c"># Or save them</span><br>
-<span class="v">mkdir</span> -p ~/.config/kimiflare<br>
-<span class="v">cat</span> > ~/.config/kimiflare/config.json <<'EOF'<br>
-{<br>
-&nbsp;&nbsp;<span class="s">"accountId"</span>: <span class="s">"YOUR_ACCOUNT_ID"</span>,<br>
-&nbsp;&nbsp;<span class="s">"apiToken"</span>: <span class="s">"YOUR_API_TOKEN"</span>,<br>
-&nbsp;&nbsp;<span class="s">"model"</span>: <span class="s">"@cf/moonshotai/kimi-k2.6"</span><br>
-}<br>
-EOF<br>
-<span class="v">chmod</span> 600 ~/.config/kimiflare/config.json
+<span class="c"># Run — onboarding will ask for your Cloudflare credentials</span><br>
+<span class="v">kimiflare</span>
       </div>
     </div>
+
+    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 1rem;">
+      Or run without installing: <code style="font-family: var(--font-mono); background: var(--bg-raised); padding: 0.15rem 0.4rem; border-radius: 4px; color: var(--text);">npx kimiflare</code>
+    </p>
 
     <div class="code-block">
       <div class="code-header">
