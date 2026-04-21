@@ -156,9 +156,9 @@ Unit tests: SSE reader split-chunks + `[DONE]`; stream accumulator against recor
 | Milestone | Status |
 |-----------|--------|
 | API probes (5) | ✅ — see "Probe findings" |
-| Scaffolding (package.json / tsconfig / tsup / bin) | 🔄 in progress |
-| SSE reader + client + accumulator | ⏳ |
-| Tools + registry + executor + permissions | ⏳ |
+| Scaffolding (package.json / tsconfig / tsup / bin) | ✅ |
+| SSE reader + client + accumulator | ✅ validated via scripts/replay-stream.ts against recorded probe-4 body |
+| Tools + registry + executor + permissions | 🔄 in progress |
 | Agent loop + system prompt + messages | ⏳ |
 | Ink TUI (chat / input / permission / status) | ⏳ |
 | Config loader + CLI entry (interactive + one-shot) | ⏳ |
