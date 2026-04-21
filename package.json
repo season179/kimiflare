@@ -9,6 +9,7 @@
   "files": [
     "bin",
     "dist",
+    "README.md",
     "PLAN.md"
   ],
   "engines": {
