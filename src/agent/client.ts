@@ -67,10 +67,10 @@ export async function* runKimi(opts: RunKimiOpts): AsyncGenerator<KimiEvent, voi
         continue;
       }
       const msg = err?.message ?? `HTTP ${res.status}: ${text.slice(0, 300)}`;
-      throw new KimiApiError(`kimi: ${msg}`, err?.code, res.status);
+      throw new KimiApiError(`kimiflare: ${msg}`, err?.code, res.status);
     }
 
-    if (!res.body) throw new KimiApiError("kimi: empty response body", undefined, res.status);
+    if (!res.body) throw new KimiApiError("kimiflare: empty response body", undefined, res.status);
 
     yield* parseStream(res.body, opts.signal);
     return;

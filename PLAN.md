@@ -10,7 +10,7 @@ Build a terminal coding agent, similar in spirit to Claude Code, driven by the `
 - **Endpoint**: `POST https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run/@cf/moonshotai/kimi-k2.6` · `Authorization: Bearer $CLOUDFLARE_API_TOKEN`.
 - **Pricing**: $0.95 / M input, $0.16 / M cached input, $4.00 / M output.
 
-Outcome: a `kimi` binary that opens a TUI, lets the user chat, calls Kimi-k2.6 with tools (file I/O, bash, search, web fetch), streams tokens, asks permission before mutating anything, and loops tool results back to the model until it stops.
+Outcome: a `kimiflare` binary that opens a TUI, lets the user chat, calls Kimi-k2.6 with tools (file I/O, bash, search, web fetch), streams tokens, asks permission before mutating anything, and loops tool results back to the model until it stops.
 
 ## Probe findings (verified against the live API)
 
@@ -39,7 +39,7 @@ Outcome: a `kimi` binary that opens a TUI, lets the user chat, calls Kimi-k2.6 w
 ├── package.json
 ├── tsconfig.json
 ├── tsup.config.ts
-├── bin/kimi.mjs                # shebang shim → dist/index.js
+├── bin/kimiflare.mjs                # shebang shim → dist/index.js
 ├── src/
 │   ├── index.tsx               # CLI entry (commander → Ink render or one-shot)
 │   ├── app.tsx                 # Ink root: chat + input + permission modal
@@ -131,14 +131,14 @@ Resolution: env vars → `~/.config/kimiflare/config.json` → first-run prompt 
 
 ### Entry modes
 
-- `kimi` — interactive TUI
-- `kimi -p "prompt"` — one-shot to stdout; permissions auto-deny unless `--dangerously-allow-all`
-- `kimi --model <id>` — override model
+- `kimiflare` — interactive TUI
+- `kimiflare -p "prompt"` — one-shot to stdout; permissions auto-deny unless `--dangerously-allow-all`
+- `kimiflare --model <id>` — override model
 - Session transcripts persisted at `~/.local/share/kimiflare/sessions/*.jsonl` (resume v1-optional)
 
 ## Verification scenarios
 
-1. `npm install && npm run build && node bin/kimi.mjs --help`.
+1. `npm install && npm run build && kimiflare --help` (after `npm link` or symlink).
 2. TUI opens with valid creds.
 3. Plain chat streams tokens live.
 4. Readonly tool auto-runs (glob/read).
@@ -146,7 +146,7 @@ Resolution: env vars → `~/.config/kimiflare/config.json` → first-run prompt 
 6. Multi-tool loop (grep across tree).
 7. Web fetch + summarize.
 8. `/cost` matches `0.95·in/1M + 4.00·out/1M`.
-9. `kimi -p --dangerously-allow-all` one-shot exits cleanly.
+9. `kimiflare -p --dangerously-allow-all` one-shot exits cleanly.
 10. Missing creds / network-kill errors are graceful.
 
 Unit tests: SSE reader split-chunks + `[DONE]`; stream accumulator against recorded Kimi tool-call transcript; edit unique-match; bash command-prefix allowlist.
@@ -163,7 +163,7 @@ Unit tests: SSE reader split-chunks + `[DONE]`; stream accumulator against recor
 | Config loader + print-mode CLI entry | ✅ — verified end-to-end (plain chat, readonly tools, mutating tools) |
 | Ink TUI (chat / input / permission / status) | ✅ renders cleanly under a pty; awaiting real-TTY interactive test |
 | Interactive CLI entry | ✅ |
-| End-to-end verification (TUI) | 🔄 in progress — user will run `kimi` in their terminal |
+| End-to-end verification (TUI) | 🔄 in progress — user will run `kimiflare` in their terminal |
 
 ## Deferred (pre-launch)
 

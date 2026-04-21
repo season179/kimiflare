@@ -4,8 +4,7 @@
   "description": "Kimiflare — a terminal coding agent powered by Kimi-K2.6 on Cloudflare Workers AI.",
   "type": "module",
   "bin": {
-    "kimi": "bin/kimi.mjs",
-    "kimiflare": "bin/kimi.mjs"
+    "kimiflare": "bin/kimiflare.mjs"
   },
   "files": [
     "bin",
@@ -19,7 +18,7 @@
     "build": "tsup",
     "dev": "tsx src/index.tsx",
     "typecheck": "tsc --noEmit",
-    "start": "node bin/kimi.mjs"
+    "start": "node bin/kimiflare.mjs"
   },
   "dependencies": {
     "commander": "^12.1.0",

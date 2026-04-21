@@ -7,7 +7,7 @@ import type { ChatMessage } from "./agent/messages.js";
 
 const program = new Command();
 program
-  .name("kimi")
+  .name("kimiflare")
   .description("Terminal coding agent powered by Kimi-K2.6 on Cloudflare Workers AI.")
   .version("0.1.0")
   .option("-p, --print <prompt>", "one-shot mode: send prompt, stream reply to stdout, exit")
@@ -49,7 +49,7 @@ async function main() {
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     console.error(
-      "kimiflare: interactive mode requires a TTY. Use `kimi -p \"...\"` for non-TTY / piped usage.",
+      "kimiflare: interactive mode requires a TTY. Use `kimiflare -p \"...\"` for non-TTY / piped usage.",
     );
     process.exit(2);
   }
