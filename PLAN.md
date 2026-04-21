@@ -161,6 +161,12 @@ Unit tests: SSE reader split-chunks + `[DONE]`; stream accumulator against recor
 | Tools + registry + executor + permissions | ✅ |
 | Agent loop + system prompt + messages | ✅ |
 | Config loader + print-mode CLI entry | ✅ — verified end-to-end (plain chat, readonly tools, mutating tools) |
-| Ink TUI (chat / input / permission / status) | 🔄 next |
-| Interactive CLI entry | ⏳ depends on TUI |
-| End-to-end verification (TUI) | ⏳ |
+| Ink TUI (chat / input / permission / status) | ✅ renders cleanly under a pty; awaiting real-TTY interactive test |
+| Interactive CLI entry | ✅ |
+| End-to-end verification (TUI) | 🔄 in progress — user will run `kimi` in their terminal |
+
+## Deferred (pre-launch)
+
+- **First-run credential wizard**: when config.json and env vars are both missing, walk the user through creating a Cloudflare API token, validate it with a tiny test call, save to `~/.config/kimi-code/config.json` (chmod 600). Today we just error out with instructions. Product is BYO-creds — every user supplies their own Cloudflare token; kimi-code does not proxy requests.
+- **Npm publish / homebrew tap** so `npm i -g kimi-code` works.
+- **Session transcripts** (`~/.local/share/kimi-code/sessions/*.jsonl`) + `--resume`.
