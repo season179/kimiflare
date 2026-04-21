@@ -23,24 +23,19 @@ kimiflare · /help for commands · ctrl-c to exit
     [Allow once] [Allow for session] [Deny]
 ```
 
-## Why
-
-- **262k context.** Read entire modules without pagination.
-- **Native tool use.** File I/O, shell, globs, grep, web fetch — all wired up, with per-call approval for anything mutating.
-- **Streaming reasoning + content.** The model's chain-of-thought streams separately; toggle with `/reasoning` or `Ctrl-R`.
-- **Pay your own way.** Your Cloudflare account, your credits, your rate limits. `$0.95 / M input`, `$0.16 / M cached input`, `$4.00 / M output`. The bottom status line shows live cost.
-
 ## Install
 
 ```sh
-git clone https://github.com/sinameraji/kimiflare
-cd kimiflare
-npm install
-npm run build
-npm link          # or: ln -s "$PWD/bin/kimiflare.mjs" ~/.local/bin/kimiflare
+npm install -g kimiflare
 ```
 
-Published npm package coming soon.
+Or run without installing:
+
+```sh
+npx kimiflare
+```
+
+Requires Node.js ≥ 20.
 
 ## Configure
 
@@ -82,16 +77,70 @@ kimiflare --reasoning                 # (print mode) stream chain-of-thought to 
 
 Interactive slash commands:
 
-| Command       | Effect                                           |
-|---------------|--------------------------------------------------|
-| `/clear`      | Reset the conversation (keeps system prompt)    |
-| `/reasoning`  | Toggle chain-of-thought display                 |
-| `/cost`       | Show token usage so far                          |
-| `/model`      | Show current model                               |
-| `/help`       | List commands                                    |
-| `/exit`       | Quit                                             |
+| Command                     | Effect                                                                          |
+|-----------------------------|---------------------------------------------------------------------------------|
+| `/mode edit\|plan\|auto`     | Switch mode. `edit` prompts for permission (default), `plan` is read-only research, `auto` auto-approves every tool call. |
+| `/plan` `/auto` `/edit`     | Shortcuts for the three modes.                                                  |
+| `/thinking low\|medium\|high` | Reasoning effort. `low` = fastest, shallow; `medium` = balanced (default); `high` = deepest, slowest. Saved to config. |
+| `/theme NAME`               | Switch color scheme: `dark` (default), `light` (bright terminals), `high-contrast`. Saved to config. |
+| `/resume`                   | Pick a past conversation to restore.                                            |
+| `/compact`                  | Summarize older turns to free context. Suggested automatically at ~80% full.    |
+| `/reasoning`                | Toggle chain-of-thought display.                                                |
+| `/clear`                    | Reset the current conversation.                                                 |
+| `/cost` `/model` `/update`  | Info commands.                                                                  |
+| `/logout`                   | Clear saved credentials.                                                        |
+| `/help` `/exit`             | List commands / quit.                                                           |
 
-Keys: `Ctrl-R` toggles reasoning, `Ctrl-C` interrupts an in-flight turn (press again to exit).
+Keys: `Shift+Tab` cycles mode · `Ctrl-R` toggles reasoning · `Ctrl-O` toggles verbose tool output · `Ctrl-C` interrupts an in-flight turn (press again to exit) · `↑`/`↓` walks prompt history.
+
+Editing keys (macOS):
+
+- `⌥←` / `⌥→` — jump word left/right (also works with `Esc b` / `Esc f`)
+- `⌘←` / `⌘→` — jump to start / end of line (in iTerm2's default profile; in Terminal.app you may need to map these to send `Ctrl-A` / `Ctrl-E`)
+- `⌥⌫` — delete word backward
+- `⌘⌫` — delete to start of line (iTerm2 sends this as `Ctrl-U`; map in Terminal.app if needed)
+- `⌥⌦` — delete word forward
+- `Ctrl-A` / `Ctrl-E` — start / end of line (always works)
+- `Ctrl-W` / `Ctrl-U` / `Ctrl-K` — delete word backward / to start of line / to end of line
+
+### Modes
+
+- **edit** — default. The agent calls tools freely for read-only work; mutating tools (`write`, `edit`, `bash`) pause for your approval.
+- **plan** — read-only. Mutating tools are hard-blocked. Ask "plan a refactor" and the agent will investigate and produce a plan without touching the filesystem. Exit plan mode to execute.
+- **auto** — autonomous. Every tool call is auto-approved. Use for trusted, well-scoped tasks.
+
+### Thinking level (quality vs speed)
+
+Kimi-K2.6 always reasons, but you can cap the effort:
+
+- **low** — fastest. Best for chat, small edits, running commands.
+- **medium** — balanced (default). Solid reasoning on real edits without the latency of deep thinking on trivial prompts.
+- **high** — deepest. Best for multi-file refactors, subtle bugs, architectural decisions.
+
+Set with `/thinking medium` (persists), or per-launch via `KIMI_REASONING_EFFORT=high`.
+
+### Type-ahead queue
+
+You can type the next prompt while the model is still executing. Submitted prompts show up as `⏳ …` and fire in order as each turn completes. `Ctrl-C` aborts the current turn and clears the queue.
+
+### Session persistence
+
+Sessions are saved to `~/.local/share/kimiflare/sessions/` after each turn. `/resume` lists the most recent (with first prompt + message count) so you can pick one up later.
+
+### Task panel
+
+For multi-step requests, the agent can publish a live task list via the `tasks_set` tool. The panel shows progress inline with status icons (`■` active, `☐` pending, `✓` done), elapsed time, and tokens consumed for the current task batch. Press `Ctrl-O` while a turn is running to switch tool output between compact (first line) and verbose (full output) modes.
+
+### Paste collapse
+
+Paste a large block (≥ 200 chars or ≥ 3 newlines in one paste) into the prompt and the input collapses it to `[pasted N lines #id]`. The full content still goes to the model on submit — only the on-screen display and chat history are collapsed, so scrollback doesn't get buried by a wall of code.
+
+## Why
+
+- **262k context.** Read entire modules without pagination.
+- **Native tool use.** File I/O, shell, globs, grep, web fetch — all wired up, with per-call approval for anything mutating.
+- **Streaming reasoning + content.** The model's chain-of-thought streams separately; toggle with `/reasoning` or `Ctrl-R`.
+- **Pay your own way.** Your Cloudflare account, your credits, your rate limits. `$0.95 / M input`, `$0.16 / M cached input`, `$4.00 / M output`. The bottom status line shows live cost.
 
 ## Tools
 
@@ -128,9 +177,19 @@ All tool calls show inline; mutating ones require per-call approval the first ti
 
 No AI Gateway, no proxy, no OpenAI SDK. Direct `fetch` to Workers AI, OpenAI-compatible `messages` + `tools` payload, SSE stream with reasoning + content + tool-call deltas accumulated by index.
 
+## Development
+
+```sh
+git clone https://github.com/sinameraji/kimiflare
+cd kimiflare
+npm install
+npm run build
+npm link          # or: ln -s "$PWD/bin/kimiflare.mjs" ~/.local/bin/kimiflare
+```
+
 ## Status
 
-Early. Transport + tools + agent loop + print mode are verified end-to-end; interactive TUI renders cleanly under a pty and awaits real-terminal shakedown. See `PLAN.md` for milestone log and deferred items (first-run wizard, npm publish, session resume).
+Early but functional. Transport + tools + agent loop + print mode are verified end-to-end. Interactive TUI ships modes, themes, thinking levels, session resume, compaction, and type-ahead queue.
 
 ## License
 

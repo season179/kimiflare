@@ -2,6 +2,7 @@ import { runKimi } from "./client.js";
 import { toOpenAIToolDefs, type ToolSpec } from "../tools/registry.js";
 import type { ToolExecutor, PermissionAsker, ToolResult } from "../tools/executor.js";
 import type { ChatMessage, ToolCall, Usage } from "./messages.js";
+import type { Task } from "../tasks-state.js";
 
 export interface AgentCallbacks {
   onAssistantStart?: () => void;
@@ -13,6 +14,7 @@ export interface AgentCallbacks {
   onUsage?: (usage: Usage) => void;
   onAssistantFinal?: (msg: ChatMessage) => void;
   onToolResult?: (result: ToolResult) => void;
+  onTasks?: (tasks: Task[]) => void;
   askPermission: PermissionAsker;
 }
 
@@ -29,6 +31,7 @@ export interface AgentTurnOpts {
   maxToolIterations?: number;
   temperature?: number;
   maxCompletionTokens?: number;
+  reasoningEffort?: "low" | "medium" | "high";
 }
 
 export async function runAgentTurn(opts: AgentTurnOpts): Promise<void> {
@@ -50,6 +53,7 @@ export async function runAgentTurn(opts: AgentTurnOpts): Promise<void> {
       signal: opts.signal,
       temperature: opts.temperature,
       maxCompletionTokens: opts.maxCompletionTokens,
+      reasoningEffort: opts.reasoningEffort,
     });
 
     for await (const ev of events) {
@@ -102,7 +106,7 @@ export async function runAgentTurn(opts: AgentTurnOpts): Promise<void> {
       const result = await opts.executor.run(
         { id: tc.id, name: tc.function.name, arguments: tc.function.arguments },
         opts.callbacks.askPermission,
-        { cwd: opts.cwd, signal: opts.signal },
+        { cwd: opts.cwd, signal: opts.signal, onTasks: opts.callbacks.onTasks },
       );
       opts.messages.push({
         role: "tool",
