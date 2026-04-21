@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Box, Text, useApp, useInput, render } from "ink";
 import Spinner from "ink-spinner";
-import TextInput from "ink-text-input";
 import { runAgentTurn } from "./agent/loop.js";
 import { buildSystemPrompt } from "./agent/system-prompt.js";
 import { ToolExecutor, ALL_TOOLS, type PermissionDecision } from "./tools/executor.js";
@@ -11,6 +10,8 @@ import { ChatView, type ChatEvent } from "./ui/chat.js";
 import { StatusBar } from "./ui/status.js";
 import { PermissionModal } from "./ui/permission.js";
 import type { ToolRender } from "./tools/registry.js";
+import { CustomTextInput } from "./ui/text-input.js";
+import { checkForUpdate, isGitRepo, type UpdateCheckResult } from "./util/update-check.js";
 
 interface Cfg {
   accountId: string;
@@ -38,6 +39,11 @@ function App({ cfg }: { cfg: Cfg }) {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [showReasoning, setShowReasoning] = useState(false);
   const [perm, setPerm] = useState<PendingPermission | null>(null);
+  const [queue, setQueue] = useState<string[]>([]);
+  const [history, setHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [draftInput, setDraftInput] = useState("");
+  const [updateInfo, setUpdateInfo] = useState<UpdateCheckResult | null>(null);
 
   const messagesRef = useRef<ChatMessage[]>([
     {
@@ -127,6 +133,45 @@ function App({ cfg }: { cfg: Cfg }) {
         ]);
         return true;
       }
+      if (c === "/update") {
+        if (updateInfo?.hasUpdate) {
+          setEvents((e) => [
+            ...e,
+            {
+              kind: "info",
+              key: mkKey(),
+              text: `updating from ${updateInfo.localVersion} → ${updateInfo.latestVersion}…`,
+            },
+          ]);
+          isGitRepo().then((git) => {
+            if (git) {
+              setEvents((e) => [
+                ...e,
+                {
+                  kind: "info",
+                  key: mkKey(),
+                  text: "run:  git pull && npm install && npm run build  then restart kimiflare",
+                },
+              ]);
+            } else {
+              setEvents((e) => [
+                ...e,
+                {
+                  kind: "info",
+                  key: mkKey(),
+                  text: "run:  npm update -g kimiflare  then restart",
+                },
+              ]);
+            }
+          });
+        } else {
+          setEvents((e) => [
+            ...e,
+            { kind: "info", key: mkKey(), text: "no update available" },
+          ]);
+        }
+        return true;
+      }
       if (c === "/help") {
         setEvents((e) => [
           ...e,
@@ -134,21 +179,20 @@ function App({ cfg }: { cfg: Cfg }) {
             kind: "info",
             key: mkKey(),
             text:
-              "commands: /clear /reasoning /cost /model /help /exit  ·  keys: ctrl-r toggle reasoning, ctrl-c interrupt/exit",
+              "commands: /clear /reasoning /cost /model /update /help /exit  ·  keys: ctrl-r toggle reasoning, ctrl-c interrupt/exit",
           },
         ]);
         return true;
       }
       return false;
     },
-    [cfg.model, exit, usage],
+    [cfg.model, exit, usage, updateInfo],
   );
 
-  const submit = useCallback(
+  const processMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || busy) return;
-      setInput("");
+      if (!trimmed) return;
 
       if (trimmed.startsWith("/") && handleSlash(trimmed)) return;
 
@@ -241,12 +285,57 @@ function App({ cfg }: { cfg: Cfg }) {
         activeControllerRef.current = null;
       }
     },
-    [busy, cfg, handleSlash, updateAssistant, updateTool],
+    [cfg, handleSlash, updateAssistant, updateTool],
+  );
+
+  useEffect(() => {
+    if (!busy && queue.length > 0) {
+      const next = queue[0]!;
+      setQueue((q) => q.slice(1));
+      processMessage(next);
+    }
+  }, [busy, queue, processMessage]);
+
+  const submit = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+
+      if (busy) {
+        setQueue((q) => [...q, trimmed]);
+        setHistory((h) => (h.length > 0 && h[h.length - 1] === trimmed ? h : [...h, trimmed]));
+        setInput("");
+        setHistoryIndex(-1);
+        return;
+      }
+
+      setHistory((h) => (h.length > 0 && h[h.length - 1] === trimmed ? h : [...h, trimmed]));
+      setInput("");
+      setHistoryIndex(-1);
+      processMessage(trimmed);
+    },
+    [busy, processMessage],
   );
 
   useEffect(() => {
     // Force a re-render tick so streaming state change is flushed.
   }, [events]);
+
+  useEffect(() => {
+    checkForUpdate().then((result) => {
+      if (result.hasUpdate) {
+        setUpdateInfo(result);
+        setEvents((e) => [
+          ...e,
+          {
+            kind: "info",
+            key: mkKey(),
+            text: `update available: ${result.localVersion} → ${result.latestVersion}  ·  run /update to upgrade`,
+          },
+        ]);
+      }
+    });
+  }, []);
 
   return (
     <Box flexDirection="column">
@@ -262,6 +351,15 @@ function App({ cfg }: { cfg: Cfg }) {
         />
       ) : (
         <Box flexDirection="column" marginTop={1}>
+          {queue.length > 0 && (
+            <Box flexDirection="column" marginBottom={1}>
+              {queue.map((q, i) => (
+                <Text key={`queue_${i}`} color="gray" dimColor>
+                  ⏳ {q}
+                </Text>
+              ))}
+            </Box>
+          )}
           <StatusBar
             model={cfg.model}
             usage={usage}
@@ -279,7 +377,46 @@ function App({ cfg }: { cfg: Cfg }) {
             ) : (
               <Box>
                 <Text color="cyan">› </Text>
-                <TextInput value={input} onChange={setInput} onSubmit={submit} />
+                <CustomTextInput
+                  value={input}
+                  onChange={setInput}
+                  onSubmit={submit}
+                  onHistoryUp={() => {
+                    if (history.length === 0) return;
+                    if (historyIndex === -1) {
+                      setDraftInput(input);
+                      const nextIndex = history.length - 1;
+                      setHistoryIndex(nextIndex);
+                      setInput(history[nextIndex]!);
+                    } else {
+                      const nextIndex = Math.max(0, historyIndex - 1);
+                      setHistoryIndex(nextIndex);
+                      setInput(history[nextIndex]!);
+                    }
+                  }}
+                  onHistoryDown={() => {
+                    if (historyIndex === -1) return;
+                    const nextIndex = historyIndex + 1;
+                    if (nextIndex >= history.length) {
+                      setHistoryIndex(-1);
+                      setInput(draftInput);
+                    } else {
+                      setHistoryIndex(nextIndex);
+                      setInput(history[nextIndex]!);
+                    }
+                  }}
+                  onClearQueueItem={(text) => {
+                    setQueue((q) => {
+                      const idx = q.indexOf(text);
+                      if (idx >= 0) {
+                        const next = [...q];
+                        next.splice(idx, 1);
+                        return next;
+                      }
+                      return q;
+                    });
+                  }}
+                />
               </Box>
             )}
           </Box>
