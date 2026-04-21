@@ -23,24 +23,19 @@ kimiflare · /help for commands · ctrl-c to exit
     [Allow once] [Allow for session] [Deny]
 ```
 
-## Why
-
-- **262k context.** Read entire modules without pagination.
-- **Native tool use.** File I/O, shell, globs, grep, web fetch — all wired up, with per-call approval for anything mutating.
-- **Streaming reasoning + content.** The model's chain-of-thought streams separately; toggle with `/reasoning` or `Ctrl-R`.
-- **Pay your own way.** Your Cloudflare account, your credits, your rate limits. `$0.95 / M input`, `$0.16 / M cached input`, `$4.00 / M output`. The bottom status line shows live cost.
-
 ## Install
 
 ```sh
-git clone https://github.com/sinameraji/kimiflare
-cd kimiflare
-npm install
-npm run build
-npm link          # or: ln -s "$PWD/bin/kimiflare.mjs" ~/.local/bin/kimiflare
+npm install -g kimiflare
 ```
 
-Published npm package coming soon.
+Or run without installing:
+
+```sh
+npx kimiflare
+```
+
+Requires Node.js ≥ 20.
 
 ## Configure
 
@@ -93,6 +88,13 @@ Interactive slash commands:
 
 Keys: `Ctrl-R` toggles reasoning, `Ctrl-C` interrupts an in-flight turn (press again to exit).
 
+## Why
+
+- **262k context.** Read entire modules without pagination.
+- **Native tool use.** File I/O, shell, globs, grep, web fetch — all wired up, with per-call approval for anything mutating.
+- **Streaming reasoning + content.** The model's chain-of-thought streams separately; toggle with `/reasoning` or `Ctrl-R`.
+- **Pay your own way.** Your Cloudflare account, your credits, your rate limits. `$0.95 / M input`, `$0.16 / M cached input`, `$4.00 / M output`. The bottom status line shows live cost.
+
 ## Tools
 
 All tool calls show inline; mutating ones require per-call approval the first time, with an option to allow for the rest of the session.
@@ -128,9 +130,19 @@ All tool calls show inline; mutating ones require per-call approval the first ti
 
 No AI Gateway, no proxy, no OpenAI SDK. Direct `fetch` to Workers AI, OpenAI-compatible `messages` + `tools` payload, SSE stream with reasoning + content + tool-call deltas accumulated by index.
 
+## Development
+
+```sh
+git clone https://github.com/sinameraji/kimiflare
+cd kimiflare
+npm install
+npm run build
+npm link          # or: ln -s "$PWD/bin/kimiflare.mjs" ~/.local/bin/kimiflare
+```
+
 ## Status
 
-Early. Transport + tools + agent loop + print mode are verified end-to-end; interactive TUI renders cleanly under a pty and awaits real-terminal shakedown. See `PLAN.md` for milestone log and deferred items (first-run wizard, npm publish, session resume).
+Early. Transport + tools + agent loop + print mode are verified end-to-end; interactive TUI renders cleanly under a pty and awaits real-terminal shakedown. See `PLAN.md` for milestone log and deferred items (first-run wizard, session resume).
 
 ## License
 
