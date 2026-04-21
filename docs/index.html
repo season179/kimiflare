@@ -97,36 +97,11 @@
       gap: 0.6rem;
     }
 
-    .logo-icon {
-      width: 28px; height: 28px;
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .logo-icon::before {
-      content: '';
-      position: absolute;
-      width: 14px; height: 14px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--cf-orange), var(--kimi-purple));
-      box-shadow: 0 0 16px rgba(244,129,32,0.4), 0 0 32px rgba(139,92,246,0.2);
-    }
-
-    .logo-icon::after {
-      content: '';
-      position: absolute;
-      width: 28px; height: 28px;
-      border-radius: 50%;
-      border: 1.5px solid transparent;
-      background: linear-gradient(135deg, var(--cf-orange), var(--kimi-cyan)) border-box;
-      -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
-      mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor;
-      mask-composite: exclude;
-      opacity: 0.5;
-      animation: rotate 8s linear infinite;
+    .logo-img {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      object-fit: cover;
     }
 
     .nav-links {
@@ -671,7 +646,7 @@
 
   <nav>
     <a href="#" class="logo">
-      <span class="logo-icon"></span>
+      <img src="logo.png" alt="kimiflare logo" class="logo-img">
       kimiflare
     </a>
     <ul class="nav-links">
