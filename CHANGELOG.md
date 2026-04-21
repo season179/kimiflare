@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/sinameraji/kimiflare/compare/v0.3.0...v0.3.1) (2026-04-21)
+
+
+### Bug Fixes
+
+* --version reads from package.json (was hardcoded 0.1.0) ([78952a1](https://github.com/sinameraji/kimiflare/commit/78952a11a9ffc66b6193102535b1dd885a75f919))
+* --version reads from package.json instead of hardcoded 0.1.0 ([9e38b33](https://github.com/sinameraji/kimiflare/commit/9e38b33aa31ff8730ba594e9935e66e400a36960))
+
 ## [0.3.0](https://github.com/sinameraji/kimiflare/compare/v0.2.0...v0.3.0) (2026-04-21)
 
 
