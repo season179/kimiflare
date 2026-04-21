@@ -114,5 +114,5 @@ export async function runAgentTurn(opts: AgentTurnOpts): Promise<void> {
     }
   }
 
-  throw new Error(`kimi-code: tool iteration limit reached (${opts.maxToolIterations ?? 50})`);
+  throw new Error(`kimiflare: tool iteration limit reached (${opts.maxToolIterations ?? 50})`);
 }

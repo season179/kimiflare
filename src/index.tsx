@@ -27,9 +27,9 @@ async function main() {
   const cfg = await loadConfig();
   if (!cfg) {
     console.error(
-      "kimi-code: missing credentials.\n" +
+      "kimiflare: missing credentials.\n" +
         "Set CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN, or write them to\n" +
-        "  ~/.config/kimi-code/config.json  (chmod 600)\n" +
+        "  ~/.config/kimiflare/config.json  (chmod 600)\n" +
         "  { \"accountId\": \"...\", \"apiToken\": \"...\", \"model\": \"@cf/moonshotai/kimi-k2.6\" }",
     );
     process.exit(2);
@@ -49,7 +49,7 @@ async function main() {
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     console.error(
-      "kimi-code: interactive mode requires a TTY. Use `kimi -p \"...\"` for non-TTY / piped usage.",
+      "kimiflare: interactive mode requires a TTY. Use `kimi -p \"...\"` for non-TTY / piped usage.",
     );
     process.exit(2);
   }
@@ -128,6 +128,6 @@ async function runPrintMode(opts: PrintOpts): Promise<void> {
 }
 
 main().catch((e) => {
-  console.error(`kimi-code: ${e instanceof Error ? e.message : String(e)}`);
+  console.error(`kimiflare: ${e instanceof Error ? e.message : String(e)}`);
   process.exit(1);
 });

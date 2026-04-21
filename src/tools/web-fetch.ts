@@ -31,7 +31,7 @@ export const webFetchTool: ToolSpec<Args> = {
       const res = await fetch(args.url, {
         redirect: "follow",
         signal: controller.signal,
-        headers: { "user-agent": "kimi-code/0.1 (+https://github.com/sinameraji/kimi-code)" },
+        headers: { "user-agent": "kimiflare/0.1 (+https://github.com/sinameraji/kimiflare)" },
       });
       const ct = res.headers.get("content-type") ?? "";
       const body = await res.text();

@@ -31,7 +31,7 @@ const mkKey = () => `evt_${nextKey++}`;
 function App({ cfg }: { cfg: Cfg }) {
   const { exit } = useApp();
   const [events, setEvents] = useState<ChatEvent[]>([
-    { kind: "info", key: mkKey(), text: "kimi-code · /help for commands · ctrl-c to exit" },
+    { kind: "info", key: mkKey(), text: "kimiflare · /help for commands · ctrl-c to exit" },
   ]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);

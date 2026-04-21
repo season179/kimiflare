@@ -12,7 +12,7 @@ export const DEFAULT_MODEL = "@cf/moonshotai/kimi-k2.6";
 
 export function configPath(): string {
   const xdg = process.env.XDG_CONFIG_HOME || join(homedir(), ".config");
-  return join(xdg, "kimi-code", "config.json");
+  return join(xdg, "kimiflare", "config.json");
 }
 
 export async function loadConfig(): Promise<KimiConfig | null> {

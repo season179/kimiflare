@@ -1,4 +1,4 @@
-# Plan: `kimi-code` — Claude Code-style CLI powered by Kimi-K2.6
+# Plan: `kimiflare` — Claude Code-style CLI powered by Kimi-K2.6
 
 > Living document. Keep updated at every milestone so context survives compaction.
 
@@ -35,7 +35,7 @@ Outcome: a `kimi` binary that opens a TUI, lets the user chat, calls Kimi-k2.6 w
 ## File layout
 
 ```
-/Users/sinameraji/kimi-code/
+/Users/sinameraji/kimiflare/
 ├── package.json
 ├── tsconfig.json
 ├── tsup.config.ts
@@ -43,7 +43,7 @@ Outcome: a `kimi` binary that opens a TUI, lets the user chat, calls Kimi-k2.6 w
 ├── src/
 │   ├── index.tsx               # CLI entry (commander → Ink render or one-shot)
 │   ├── app.tsx                 # Ink root: chat + input + permission modal
-│   ├── config.ts               # env + ~/.config/kimi-code/config.json
+│   ├── config.ts               # env + ~/.config/kimiflare/config.json
 │   ├── agent/
 │   │   ├── client.ts           # Cloudflare Workers AI client (fetch + SSE + retry)
 │   │   ├── stream.ts           # delta accumulator (reasoning/content/tool_calls)
@@ -123,7 +123,7 @@ Injects cwd, platform, shell, date, and one-line per registered tool. Emphasizes
 
 ### Config
 
-Resolution: env vars → `~/.config/kimi-code/config.json` → first-run prompt writing chmod 600 file.
+Resolution: env vars → `~/.config/kimiflare/config.json` → first-run prompt writing chmod 600 file.
 
 ```jsonc
 { "accountId": "…", "apiToken": "…", "model": "@cf/moonshotai/kimi-k2.6" }
@@ -134,7 +134,7 @@ Resolution: env vars → `~/.config/kimi-code/config.json` → first-run prompt 
 - `kimi` — interactive TUI
 - `kimi -p "prompt"` — one-shot to stdout; permissions auto-deny unless `--dangerously-allow-all`
 - `kimi --model <id>` — override model
-- Session transcripts persisted at `~/.local/share/kimi-code/sessions/*.jsonl` (resume v1-optional)
+- Session transcripts persisted at `~/.local/share/kimiflare/sessions/*.jsonl` (resume v1-optional)
 
 ## Verification scenarios
 
@@ -167,6 +167,6 @@ Unit tests: SSE reader split-chunks + `[DONE]`; stream accumulator against recor
 
 ## Deferred (pre-launch)
 
-- **First-run credential wizard**: when config.json and env vars are both missing, walk the user through creating a Cloudflare API token, validate it with a tiny test call, save to `~/.config/kimi-code/config.json` (chmod 600). Today we just error out with instructions. Product is BYO-creds — every user supplies their own Cloudflare token; kimi-code does not proxy requests.
-- **Npm publish / homebrew tap** so `npm i -g kimi-code` works.
-- **Session transcripts** (`~/.local/share/kimi-code/sessions/*.jsonl`) + `--resume`.
+- **First-run credential wizard**: when config.json and env vars are both missing, walk the user through creating a Cloudflare API token, validate it with a tiny test call, save to `~/.config/kimiflare/config.json` (chmod 600). Today we just error out with instructions. Product is BYO-creds — every user supplies their own Cloudflare token; kimiflare does not proxy requests.
+- **Npm publish / homebrew tap** so `npm i -g kimiflare` works.
+- **Session transcripts** (`~/.local/share/kimiflare/sessions/*.jsonl`) + `--resume`.
