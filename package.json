@@ -2,6 +2,12 @@
   "name": "kimiflare",
   "version": "0.2.0",
   "description": "Kimiflare — a terminal coding agent powered by Kimi-K2.6 on Cloudflare Workers AI.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sinameraji/kimiflare.git"
+  },
+  "homepage": "https://github.com/sinameraji/kimiflare#readme",
+  "bugs": "https://github.com/sinameraji/kimiflare/issues",
   "type": "module",
   "bin": {
     "kimiflare": "bin/kimiflare.mjs"
