@@ -12,6 +12,7 @@ import { ChatView, type ChatEvent } from "./ui/chat.js";
 import { StatusBar } from "./ui/status.js";
 import { PermissionModal } from "./ui/permission.js";
 import { ResumePicker } from "./ui/resume-picker.js";
+import { ThemePicker } from "./ui/theme-picker.js";
 import { TaskList } from "./ui/task-list.js";
 import type { Task } from "./tasks-state.js";
 import { existsSync } from "node:fs";
@@ -29,7 +30,7 @@ import {
   saveConfig,
   type ReasoningEffort,
 } from "./config.js";
-import { resolveTheme, themeNames, type Theme } from "./ui/theme.js";
+import { resolveTheme, themeNames, themeList, type Theme } from "./ui/theme.js";
 import { nextMode, type Mode, isBlockedInPlanMode } from "./mode.js";
 import {
   listSessions,
@@ -90,6 +91,8 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
   );
   const [theme, setTheme] = useState<Theme>(resolveTheme(initialCfg?.theme));
   const [resumeSessions, setResumeSessions] = useState<SessionSummary[] | null>(null);
+  const [showThemePicker, setShowThemePicker] = useState(false);
+  const [originalTheme, setOriginalTheme] = useState<Theme | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksStartedAt, setTasksStartedAt] = useState<number | null>(null);
   const [tasksStartTokens, setTasksStartTokens] = useState<number>(0);
@@ -284,6 +287,11 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
       setVerbose((v) => !v);
       return;
     }
+    if (key.ctrl && inputChar === "t") {
+      setOriginalTheme(theme);
+      setShowThemePicker(true);
+      return;
+    }
   });
 
   const updateAssistant = useCallback(
@@ -358,7 +366,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
   }, [cfg, busy, saveSessionSafe]);
 
   const openResumePicker = useCallback(async () => {
-    const sessions = await listSessions(30);
+    const sessions = await listSessions(200);
     setResumeSessions(sessions);
   }, []);
 
@@ -539,6 +547,28 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
     [],
   );
 
+  const handleThemePick = useCallback(
+    (picked: Theme | null) => {
+      if (!picked) {
+        // cancel — revert to original
+        if (originalTheme) setTheme(originalTheme);
+        setShowThemePicker(false);
+        setOriginalTheme(null);
+        return;
+      }
+      setTheme(picked);
+      setCfg((c) => (c ? { ...c, theme: picked.name } : c));
+      if (cfg) void saveConfig({ ...cfg, theme: picked.name }).catch(() => {});
+      setShowThemePicker(false);
+      setOriginalTheme(null);
+      setEvents((e) => [
+        ...e,
+        { kind: "info", key: mkKey(), text: `theme: ${picked.label}` },
+      ]);
+    },
+    [cfg, originalTheme],
+  );
+
   const handleSlash = useCallback(
     (cmd: string): boolean => {
       const raw = cmd.trim();
@@ -626,14 +656,8 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
       }
       if (c === "/theme") {
         if (!arg) {
-          setEvents((e) => [
-            ...e,
-            {
-              kind: "info",
-              key: mkKey(),
-              text: `current: ${theme.name}  ·  available: ${themeNames().join(", ")}`,
-            },
-          ]);
+          setOriginalTheme(theme);
+          setShowThemePicker(true);
           return true;
         }
         const next = resolveTheme(arg);
@@ -758,14 +782,15 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
               "  /mode edit|plan|auto    switch mode (or shift+tab to cycle)\n" +
               "  /plan /auto /edit       shortcuts for /mode\n" +
               "  /thinking low|med|high  set reasoning effort (quality vs speed)\n" +
-              "  /theme NAME             dark, light, high-contrast\n" +
+              "  /theme                  interactive theme picker (or ctrl+t)\n" +
+              "  /theme NAME             set theme by name\n" +
               "  /resume                 pick a past conversation\n" +
               "  /compact                summarize old turns to free context\n" +
               "  /init                   scan this repo and write a KIMI.md for future agents\n" +
               "  /reasoning              toggle show/hide model reasoning\n" +
               "  /clear                  clear current conversation\n" +
               "  /cost /model /update /logout /help /exit\n" +
-              "keys: ctrl-c interrupt/exit · ctrl-r toggle reasoning · ctrl-o toggle verbose output · shift+tab cycle mode · ↑/↓ history",
+              "keys: ctrl-c interrupt/exit · ctrl-r toggle reasoning · ctrl-o verbose · ctrl+t theme · shift+tab cycle mode · ↑/↓ history",
           },
         ]);
         return true;
@@ -981,6 +1006,14 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
     return (
       <Box flexDirection="column">
         <ResumePicker sessions={resumeSessions} onPick={handleResumePick} theme={theme} />
+      </Box>
+    );
+  }
+
+  if (showThemePicker) {
+    return (
+      <Box flexDirection="column">
+        <ThemePicker themes={themeList()} current={theme} onPick={handleThemePick} />
       </Box>
     );
   }
