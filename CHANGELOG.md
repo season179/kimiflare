@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.0](https://github.com/sinameraji/kimiflare/compare/v0.12.0...v0.13.0) (2026-04-22)
+
+
+### Features
+
+* ctrl+c interrupts current operation without exiting session ([6a3da50](https://github.com/sinameraji/kimiflare/commit/6a3da50d312e850a0c45de883db00cd810f8d89a))
+* ctrl+c interrupts current operation without exiting session ([3307c8f](https://github.com/sinameraji/kimiflare/commit/3307c8f51da22b461c972af68ab0556d1d22f317))
+
 ## [0.12.0](https://github.com/sinameraji/kimiflare/compare/v0.11.0...v0.12.0) (2026-04-22)
 
 
