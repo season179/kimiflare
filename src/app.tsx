@@ -91,6 +91,7 @@ function App({ initialCfg }: { initialCfg: Cfg | null }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksStartedAt, setTasksStartedAt] = useState<number | null>(null);
   const [tasksStartTokens, setTasksStartTokens] = useState<number>(0);
+  const [turnStartedAt, setTurnStartedAt] = useState<number | null>(null);
   const [verbose, setVerbose] = useState(false);
 
   const messagesRef = useRef<ChatMessage[]>([
@@ -240,6 +241,7 @@ function App({ initialCfg }: { initialCfg: Cfg | null }) {
       return;
     }
     setBusy(true);
+    setTurnStartedAt(Date.now());
     const controller = new AbortController();
     activeControllerRef.current = controller;
     try {
@@ -276,6 +278,7 @@ function App({ initialCfg }: { initialCfg: Cfg | null }) {
       }
     } finally {
       setBusy(false);
+      setTurnStartedAt(null);
       activeControllerRef.current = null;
     }
   }, [cfg, busy, saveSessionSafe]);
@@ -324,6 +327,7 @@ function App({ initialCfg }: { initialCfg: Cfg | null }) {
     setEvents((e) => [...e, { kind: "user", key: mkKey(), text: "/init" }]);
     messagesRef.current.push({ role: "user", content: prompt });
     setBusy(true);
+    setTurnStartedAt(Date.now());
     const controller = new AbortController();
     activeControllerRef.current = controller;
 
@@ -425,6 +429,7 @@ function App({ initialCfg }: { initialCfg: Cfg | null }) {
       }
     } finally {
       setBusy(false);
+      setTurnStartedAt(null);
       activeAsstIdRef.current = null;
       activeControllerRef.current = null;
     }
@@ -703,6 +708,7 @@ function App({ initialCfg }: { initialCfg: Cfg | null }) {
       setEvents((e) => [...e, { kind: "user", key: mkKey(), text: display }]);
       messagesRef.current.push({ role: "user", content: trimmed });
       setBusy(true);
+      setTurnStartedAt(Date.now());
 
       const controller = new AbortController();
       activeControllerRef.current = controller;
@@ -823,6 +829,7 @@ function App({ initialCfg }: { initialCfg: Cfg | null }) {
         }
       } finally {
         setBusy(false);
+        setTurnStartedAt(null);
         activeAsstIdRef.current = null;
         activeControllerRef.current = null;
       }
@@ -941,6 +948,7 @@ function App({ initialCfg }: { initialCfg: Cfg | null }) {
             model={cfg.model}
             usage={usage}
             thinking={busy}
+            turnStartedAt={turnStartedAt}
             theme={theme}
             mode={mode}
             effort={effort}
