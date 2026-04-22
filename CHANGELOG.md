@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.1](https://github.com/sinameraji/kimiflare/compare/v0.8.0...v0.8.1) (2026-04-22)
+
+
+### Bug Fixes
+
+* stale update cache and double arrow in theme picker ([913c230](https://github.com/sinameraji/kimiflare/commit/913c2301f53c9a02628c111ebdc1ad50abdcd432))
+* stale update cache and double arrow in theme picker ([4572494](https://github.com/sinameraji/kimiflare/commit/4572494c02077ce50aa0b413d22c7c48428ac5ab))
+
 ## [0.8.0](https://github.com/sinameraji/kimiflare/compare/v0.7.1...v0.8.0) (2026-04-22)
 
 
