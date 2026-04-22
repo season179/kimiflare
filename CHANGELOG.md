@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.0](https://github.com/sinameraji/kimiflare/compare/v0.3.1...v0.4.0) (2026-04-22)
+
+
+### Features
+
+* clean up first-run UI, chat layout, and onboarding ([d5eb188](https://github.com/sinameraji/kimiflare/commit/d5eb188ddf099aa22ca14c0899ac92175a3ddaae))
+* clean up first-run UI, chat layout, and onboarding ([0bf41ae](https://github.com/sinameraji/kimiflare/commit/0bf41ae5c1bdae51b7c77ce2bf7155e369ef0e91))
+
+
+### Bug Fixes
+
+* remove automatic update-check spam on startup ([6826cca](https://github.com/sinameraji/kimiflare/commit/6826cca07d530d30228fe59117016ac066c9081b))
+* remove unused onSuggestion prop from Welcome component ([9aef3fb](https://github.com/sinameraji/kimiflare/commit/9aef3fbe9a9a1793e28a72a21e15892dacbddef0))
+* remove unused prop + configure release-please for ui commits ([03def7c](https://github.com/sinameraji/kimiflare/commit/03def7cb62746fd914359246fc67235c99b30ba7))
+
 ## [0.3.1](https://github.com/sinameraji/kimiflare/compare/v0.3.0...v0.3.1) (2026-04-21)
 
 
