@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Box, Text } from "ink";
 import type { Theme } from "./theme.js";
 
@@ -13,7 +13,7 @@ interface InlineSegment {
 }
 
 export function MD({ text, theme }: Props) {
-  const blocks = parseBlocks(text);
+  const blocks = useMemo(() => parseBlocks(text), [text]);
   return (
     <Box flexDirection="column">
       {blocks.map((b, i) => (

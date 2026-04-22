@@ -60,10 +60,16 @@ interface PendingPermission {
 
 const CONTEXT_LIMIT = 262_000;
 const AUTO_COMPACT_SUGGEST_PCT = 0.8;
+const MAX_EVENTS = 500;
 
 let nextAssistantId = 1;
 let nextKey = 1;
 const mkKey = () => `evt_${nextKey++}`;
+
+function capEvents(prev: ChatEvent[]): ChatEvent[] {
+  if (prev.length <= MAX_EVENTS) return prev;
+  return prev.slice(prev.length - MAX_EVENTS);
+}
 
 const EFFORT_DESCRIPTIONS: Record<ReasoningEffort, string> = {
   low: "low — fastest; lightest reasoning. Best for simple Q&A, small edits, quick coordination.",
@@ -74,7 +80,16 @@ const EFFORT_DESCRIPTIONS: Record<ReasoningEffort, string> = {
 function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; initialUpdateResult?: UpdateCheckResult }) {
   const { exit } = useApp();
   const [cfg, setCfg] = useState<Cfg | null>(initialCfg);
-  const [events, setEvents] = useState<ChatEvent[]>([]);
+  const [events, setRawEvents] = useState<ChatEvent[]>([]);
+  const setEvents = useCallback(
+    (updater: React.SetStateAction<ChatEvent[]>) => {
+      setRawEvents((prev) => {
+        const next = typeof updater === "function" ? (updater as (prev: ChatEvent[]) => ChatEvent[])(prev) : updater;
+        return capEvents(next);
+      });
+    },
+    [],
+  );
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [usage, setUsage] = useState<Usage | null>(null);
