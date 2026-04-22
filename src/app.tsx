@@ -17,7 +17,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { ToolRender } from "./tools/registry.js";
 import { CustomTextInput } from "./ui/text-input.js";
-import { checkForUpdate, isGitRepo, type UpdateCheckResult } from "./util/update-check.js";
+import { checkForUpdate, isGitRepo } from "./util/update-check.js";
 import { Onboarding } from "./ui/onboarding.js";
 import { Welcome } from "./ui/welcome.js";
 import {
@@ -78,7 +78,7 @@ function App({ initialCfg }: { initialCfg: Cfg | null }) {
   const [history, setHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [draftInput, setDraftInput] = useState("");
-  const [updateInfo, setUpdateInfo] = useState<UpdateCheckResult | null>(null);
+
   const [mode, setMode] = useState<Mode>("edit");
   const [effort, setEffort] = useState<ReasoningEffort>(
     initialCfg?.reasoningEffort ?? DEFAULT_REASONING_EFFORT,
@@ -585,42 +585,35 @@ function App({ initialCfg }: { initialCfg: Cfg | null }) {
         return true;
       }
       if (c === "/update") {
-        if (updateInfo?.hasUpdate) {
-          setEvents((e) => [
-            ...e,
-            {
-              kind: "info",
-              key: mkKey(),
-              text: `updating from ${updateInfo.localVersion} → ${updateInfo.latestVersion}…`,
-            },
-          ]);
-          isGitRepo().then((git) => {
-            if (git) {
+        void checkForUpdate().then((result) => {
+          if (result.hasUpdate) {
+            setEvents((e) => [
+              ...e,
+              {
+                kind: "info",
+                key: mkKey(),
+                text: `update available: ${result.localVersion} → ${result.latestVersion}`,
+              },
+            ]);
+            void isGitRepo().then((git) => {
               setEvents((e) => [
                 ...e,
                 {
                   kind: "info",
                   key: mkKey(),
-                  text: "run:  git pull && npm install && npm run build  then restart kimiflare",
+                  text: git
+                    ? "run:  git pull && npm install && npm run build  then restart kimiflare"
+                    : "run:  npm update -g kimiflare  then restart",
                 },
               ]);
-            } else {
-              setEvents((e) => [
-                ...e,
-                {
-                  kind: "info",
-                  key: mkKey(),
-                  text: "run:  npm update -g kimiflare  then restart",
-                },
-              ]);
-            }
-          });
-        } else {
-          setEvents((e) => [
-            ...e,
-            { kind: "info", key: mkKey(), text: "no update available" },
-          ]);
-        }
+            });
+          } else {
+            setEvents((e) => [
+              ...e,
+              { kind: "info", key: mkKey(), text: "no update available" },
+            ]);
+          }
+        });
         return true;
       }
       if (c === "/logout") {
@@ -657,7 +650,7 @@ function App({ initialCfg }: { initialCfg: Cfg | null }) {
       }
       return false;
     },
-    [cfg, exit, usage, updateInfo, effort, theme, mode, openResumePicker, runCompact, runInit],
+    [cfg, exit, usage, effort, theme, mode, openResumePicker, runCompact, runInit],
   );
 
   const processMessage = useCallback(
@@ -826,22 +819,6 @@ function App({ initialCfg }: { initialCfg: Cfg | null }) {
     },
     [busy, processMessage],
   );
-
-  useEffect(() => {
-    checkForUpdate().then((result) => {
-      if (result.hasUpdate) {
-        setUpdateInfo(result);
-        setEvents((e) => [
-          ...e,
-          {
-            kind: "info",
-            key: mkKey(),
-            text: `update available: ${result.localVersion} → ${result.latestVersion}  ·  run /update to upgrade`,
-          },
-        ]);
-      }
-    });
-  }, []);
 
   useEffect(() => {
     if (usage && usage.prompt_tokens / CONTEXT_LIMIT >= AUTO_COMPACT_SUGGEST_PCT) {
