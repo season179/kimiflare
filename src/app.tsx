@@ -77,7 +77,16 @@ const EFFORT_DESCRIPTIONS: Record<ReasoningEffort, string> = {
 function App({ initialCfg }: { initialCfg: Cfg | null }) {
   const { exit } = useApp();
   const [cfg, setCfg] = useState<Cfg | null>(initialCfg);
-  const [events, setEvents] = useState<ChatEvent[]>([]);
+  const [events, setRawEvents] = useState<ChatEvent[]>([]);
+  const setEvents = useCallback(
+    (updater: React.SetStateAction<ChatEvent[]>) => {
+      setRawEvents((prev) => {
+        const next = typeof updater === "function" ? (updater as (prev: ChatEvent[]) => ChatEvent[])(prev) : updater;
+        return capEvents(next);
+      });
+    },
+    [],
+  );
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [usage, setUsage] = useState<Usage | null>(null);
@@ -403,7 +412,6 @@ function App({ initialCfg }: { initialCfg: Cfg | null }) {
       setBusy(false);
       activeAsstIdRef.current = null;
       activeControllerRef.current = null;
-      setEvents((prev) => capEvents(prev));
     }
   }, [cfg, busy, updateAssistant, updateTool]);
 
@@ -801,7 +809,6 @@ function App({ initialCfg }: { initialCfg: Cfg | null }) {
         setBusy(false);
         activeAsstIdRef.current = null;
         activeControllerRef.current = null;
-        setEvents((prev) => capEvents(prev));
       }
     },
     [cfg, handleSlash, updateAssistant, updateTool, saveSessionSafe],
