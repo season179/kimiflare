@@ -1,5 +1,6 @@
 import React from "react";
 import { Box, Text } from "ink";
+import Spinner from "ink-spinner";
 import { ToolView, type ToolEventState } from "./tool-view.js";
 import { MD } from "./markdown.js";
 import type { Theme } from "./theme.js";
@@ -82,6 +83,11 @@ function EventView({
           </Box>
         ) : null}
         {evt.text ? <MD text={evt.text} theme={theme} /> : null}
+        {evt.streaming && (
+          <Text color={theme.spinner}>
+            <Spinner type="dots" />
+          </Text>
+        )}
       </Box>
     );
   }

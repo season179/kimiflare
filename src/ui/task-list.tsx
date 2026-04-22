@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Box, Text } from "ink";
+import Spinner from "ink-spinner";
 import type { Task } from "../tasks-state.js";
 import type { Theme } from "./theme.js";
 
@@ -75,7 +76,7 @@ function TaskRow({ task, theme }: { task: Task; theme: Theme }) {
   if (task.status === "in_progress") {
     return (
       <Text color={theme.accent} bold>
-        {"  "}■ {task.title}
+        {"  "}<Spinner type="dots" /> {task.title}
       </Text>
     );
   }
