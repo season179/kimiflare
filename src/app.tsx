@@ -1013,7 +1013,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
   if (showThemePicker) {
     return (
       <Box flexDirection="column">
-        <ThemePicker themes={themeList()} current={theme} onPick={handleThemePick} />
+        <ThemePicker themes={themeList()} current={theme} onPick={handleThemePick} onPreview={(t) => setTheme(t)} />
       </Box>
     );
   }

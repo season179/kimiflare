@@ -7,9 +7,10 @@ interface Props {
   themes: Theme[];
   current: Theme;
   onPick: (theme: Theme | null) => void;
+  onPreview?: (theme: Theme) => void;
 }
 
-export function ThemePicker({ themes, current, onPick }: Props) {
+export function ThemePicker({ themes, current, onPick, onPreview }: Props) {
   const items = themes.map((t) => ({
     label: t.label,
     value: t.name,
@@ -31,7 +32,7 @@ export function ThemePicker({ themes, current, onPick }: Props) {
           onHighlight={(item) => {
             if (item.value !== "__cancel__") {
               const highlighted = themes.find((t) => t.name === item.value);
-              if (highlighted) onPick(highlighted);
+              if (highlighted) onPreview?.(highlighted);
             }
           }}
           onSelect={(item) => {
