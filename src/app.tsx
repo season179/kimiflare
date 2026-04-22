@@ -57,10 +57,16 @@ interface PendingPermission {
 
 const CONTEXT_LIMIT = 262_000;
 const AUTO_COMPACT_SUGGEST_PCT = 0.8;
+const MAX_EVENTS = 500;
 
 let nextAssistantId = 1;
 let nextKey = 1;
 const mkKey = () => `evt_${nextKey++}`;
+
+function capEvents(prev: ChatEvent[]): ChatEvent[] {
+  if (prev.length <= MAX_EVENTS) return prev;
+  return prev.slice(prev.length - MAX_EVENTS);
+}
 
 const EFFORT_DESCRIPTIONS: Record<ReasoningEffort, string> = {
   low: "low — fastest; lightest reasoning. Best for simple Q&A, small edits, quick coordination.",
@@ -397,6 +403,7 @@ function App({ initialCfg }: { initialCfg: Cfg | null }) {
       setBusy(false);
       activeAsstIdRef.current = null;
       activeControllerRef.current = null;
+      setEvents((prev) => capEvents(prev));
     }
   }, [cfg, busy, updateAssistant, updateTool]);
 
@@ -794,6 +801,7 @@ function App({ initialCfg }: { initialCfg: Cfg | null }) {
         setBusy(false);
         activeAsstIdRef.current = null;
         activeControllerRef.current = null;
+        setEvents((prev) => capEvents(prev));
       }
     },
     [cfg, handleSlash, updateAssistant, updateTool, saveSessionSafe],

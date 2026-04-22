@@ -25,7 +25,7 @@ interface Props {
   verbose?: boolean;
 }
 
-export function ChatView({ events, showReasoning, theme, verbose }: Props) {
+export const ChatView = React.memo(function ChatView({ events, showReasoning, theme, verbose }: Props) {
   return (
     <Box flexDirection="column">
       {events.map((e, i) => {
@@ -47,7 +47,7 @@ export function ChatView({ events, showReasoning, theme, verbose }: Props) {
       })}
     </Box>
   );
-}
+});
 
 function EventView({
   evt,

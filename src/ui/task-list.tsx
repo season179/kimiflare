@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Box, Text } from "ink";
 import type { Task } from "../tasks-state.js";
 import type { Theme } from "./theme.js";
@@ -14,14 +14,20 @@ const MAX_VISIBLE = 6;
 
 export function TaskList({ tasks, theme, startedAt, tokensDelta }: Props) {
   const [now, setNow] = useState(Date.now());
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
 
   useEffect(() => {
     if (startedAt === null) return;
-    const allDone = tasks.length > 0 && tasks.every((t) => t.status === "completed");
-    if (allDone) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
+    const id = setInterval(() => {
+      setNow(Date.now());
+      const current = tasksRef.current;
+      if (current.length > 0 && current.every((t) => t.status === "completed")) {
+        clearInterval(id);
+      }
+    }, 1000);
     return () => clearInterval(id);
-  }, [startedAt, tasks]);
+  }, [startedAt]);
 
   if (tasks.length === 0) return null;
 
