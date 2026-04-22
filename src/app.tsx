@@ -426,7 +426,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         reasoningEffort: effortRef.current,
         coauthor:
           cfg.coauthor !== false
-            ? { name: cfg.coauthorName || "kimiflare", email: cfg.coauthorEmail || "sinameraji@gmail.com" }
+            ? { name: cfg.coauthorName || "kimiflare", email: cfg.coauthorEmail || "kimiflare@proton.me" }
             : undefined,
         callbacks: {
           onAssistantStart: () => {
@@ -830,7 +830,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
           reasoningEffort: effortRef.current,
           coauthor:
             cfg.coauthor !== false
-              ? { name: cfg.coauthorName || "kimiflare", email: cfg.coauthorEmail || "sinameraji@gmail.com" }
+              ? { name: cfg.coauthorName || "kimiflare", email: cfg.coauthorEmail || "kimiflare@proton.me" }
               : undefined,
           callbacks: {
             onAssistantStart: () => {
