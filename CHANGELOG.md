@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.1](https://github.com/sinameraji/kimiflare/compare/v0.13.0...v0.13.1) (2026-04-22)
+
+
+### Bug Fixes
+
+* reduce memory growth during long sessions ([510a5bb](https://github.com/sinameraji/kimiflare/commit/510a5bbff24a4319743dcfa5a4d052a581c98967))
+* reduce memory growth during long sessions ([de840a6](https://github.com/sinameraji/kimiflare/commit/de840a6cfcf5edf620e79ab1b465407579068c00))
+
 ## [0.13.0](https://github.com/sinameraji/kimiflare/compare/v0.12.0...v0.13.0) (2026-04-22)
 
 
