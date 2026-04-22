@@ -310,7 +310,7 @@ function App({ initialCfg }: { initialCfg: Cfg | null }) {
         reasoningEffort: effortRef.current,
         coauthor:
           cfg.coauthor !== false
-            ? { name: cfg.coauthorName || "kimiflare", email: cfg.coauthorEmail || "sinameraji@gmail.com" }
+            ? { name: cfg.coauthorName || "kimiflare", email: cfg.coauthorEmail || "kimiflare@proton.me" }
             : undefined,
         callbacks: {
           onAssistantStart: () => {
@@ -689,7 +689,7 @@ function App({ initialCfg }: { initialCfg: Cfg | null }) {
           reasoningEffort: effortRef.current,
           coauthor:
             cfg.coauthor !== false
-              ? { name: cfg.coauthorName || "kimiflare", email: cfg.coauthorEmail || "sinameraji@gmail.com" }
+              ? { name: cfg.coauthorName || "kimiflare", email: cfg.coauthorEmail || "kimiflare@proton.me" }
               : undefined,
           callbacks: {
             onAssistantStart: () => {
