@@ -1,6 +1,6 @@
 # kimiflare
 
-A terminal coding agent powered by **[Kimi-K2.6](https://developers.cloudflare.com/workers-ai/models/kimi-k2.6/)** on Cloudflare Workers AI. Moonshot's 1T-parameter open-source model runs directly on your Cloudflare account — no middleman, no AI Gateway, no OpenAI SDK. You bring the token, your traffic goes straight to Cloudflare.
+A terminal coding agent powered by **[Kimi-K2.6](https://developers.cloudflare.com/workers-ai/models/kimi-k2.6/)** on Cloudflare Workers AI. Moonshot's 1T-parameter open-source model runs directly on your Cloudflare account. You bring the token, your traffic goes straight to Cloudflare.
 
 ```
 $ kimiflare
@@ -180,7 +180,7 @@ All tool calls show inline; mutating ones require per-call approval the first ti
                                        @cf/moonshotai/kimi-k2.6
 ```
 
-No AI Gateway, no proxy, no OpenAI SDK. Direct `fetch` to Workers AI, OpenAI-compatible `messages` + `tools` payload, SSE stream with reasoning + content + tool-call deltas accumulated by index.
+Direct `fetch` to Workers AI, OpenAI-compatible `messages` + `tools` payload, SSE stream with reasoning + content + tool-call deltas accumulated by index.
 
 ## Development
 
