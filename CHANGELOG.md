@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.9.0](https://github.com/sinameraji/kimiflare/compare/v0.8.2...v0.9.0) (2026-04-22)
+
+
+### Features
+
+* add logo, badges, and MIT license ([c4d27ee](https://github.com/sinameraji/kimiflare/commit/c4d27ee08cfde50192fdfd86c9f4251d737ef607))
+* add logo, badges, and MIT license to README ([4dc3249](https://github.com/sinameraji/kimiflare/commit/4dc3249077fd12091b837a50ee7f624112a6e451))
+
+
+### Bug Fixes
+
+* update default co-author email to kimiflare@proton.me ([84400ce](https://github.com/sinameraji/kimiflare/commit/84400ceccf95e19fc9f42100265e94ef2a2f04c4))
+* update default co-author email to kimiflare@proton.me ([abe96cc](https://github.com/sinameraji/kimiflare/commit/abe96cc7c8d46a7d5e92e0e195d08bde5a36be9d))
+* use existing project logo instead of generated SVG ([d7ca1ce](https://github.com/sinameraji/kimiflare/commit/d7ca1ce60a66e0ab75dea2c47b338cb05fc188ef))
+* use existing project logo instead of generated SVG ([2112085](https://github.com/sinameraji/kimiflare/commit/21120851b596481876716f8d61f4672d8728ba6e))
+
 ## [0.8.2](https://github.com/sinameraji/kimiflare/compare/v0.8.1...v0.8.2) (2026-04-22)
 
 
