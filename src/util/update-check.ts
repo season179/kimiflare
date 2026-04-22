@@ -17,20 +17,30 @@ function cachePath(): string {
   return join(xdg, "kimiflare", "update-check.json");
 }
 
-function localPackageJsonPath(): string {
-  // When bundled, __dirname is dist/. Go up one level to find package.json.
-  const here = dirname(fileURLToPath(import.meta.url));
-  return join(here, "..", "..", "package.json");
+async function findPackageJson(startDir: string): Promise<{ path: string; version: string } | null> {
+  let dir = startDir;
+  while (true) {
+    const candidate = join(dir, "package.json");
+    try {
+      const raw = await readFile(candidate, "utf8");
+      const parsed = JSON.parse(raw) as { name?: string; version?: string };
+      if (parsed.name === "kimiflare" && parsed.version) {
+        return { path: candidate, version: parsed.version };
+      }
+    } catch {
+      /* not found or not ours */
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
 }
 
 async function readLocalVersion(): Promise<string | null> {
-  try {
-    const raw = await readFile(localPackageJsonPath(), "utf8");
-    const parsed = JSON.parse(raw) as { version?: string };
-    return parsed.version ?? null;
-  } catch {
-    return null;
-  }
+  const here = dirname(fileURLToPath(import.meta.url));
+  const found = await findPackageJson(here);
+  return found?.version ?? null;
 }
 
 async function readCache(): Promise<CacheEntry | null> {
@@ -107,11 +117,17 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
 }
 
 export async function isGitRepo(): Promise<boolean> {
-  try {
-    const here = dirname(fileURLToPath(import.meta.url));
-    await access(join(here, "..", "..", ".git"));
-    return true;
-  } catch {
-    return false;
+  let dir = dirname(fileURLToPath(import.meta.url));
+  while (true) {
+    try {
+      await access(join(dir, ".git"));
+      return true;
+    } catch {
+      /* not found */
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
   }
+  return false;
 }
