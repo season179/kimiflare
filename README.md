@@ -1,6 +1,6 @@
 # kimiflare
 
-A terminal coding agent powered by **[Kimi-K2.6](https://developers.cloudflare.com/workers-ai/models/kimi-k2.6/)** on Cloudflare Workers AI. It's Claude Code, but the model is Moonshot's 1T-parameter open-source Kimi running directly on your Cloudflare account — no middleman, no AI Gateway, no OpenAI SDK. You bring the token, your traffic goes straight to Cloudflare.
+A terminal coding agent powered by **[Kimi-K2.6](https://developers.cloudflare.com/workers-ai/models/kimi-k2.6/)** on Cloudflare Workers AI. Moonshot's 1T-parameter open-source model runs directly on your Cloudflare account — no middleman, no AI Gateway, no OpenAI SDK. You bring the token, your traffic goes straight to Cloudflare.
 
 ```
 $ kimiflare
