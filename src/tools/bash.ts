@@ -2,7 +2,6 @@ import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ToolSpec, ToolContext, ToolOutput } from "./registry.js";
-import { truncate } from "../util/paths.js";
 
 interface Args {
   command: string;
@@ -11,12 +10,11 @@ interface Args {
 
 const DEFAULT_TIMEOUT = 120_000;
 const MAX_TIMEOUT = 600_000;
-const OUTPUT_CAP = 30_000;
 
 export const bashTool: ToolSpec<Args> = {
   name: "bash",
   description:
-    "Run a shell command via `bash -lc`. Prompts the user for permission before executing. stdout and stderr are captured, combined, and capped at 30KB.",
+    "Run a shell command via `bash -lc`. Prompts the user for permission before executing. stdout and stderr are captured and combined. Large outputs are reduced to a compact summary by default; use expand_artifact to retrieve the full log.",
   parameters: {
     type: "object",
     properties: {
@@ -117,11 +115,10 @@ function runBash(args: Args, ctx: ToolContext): Promise<ToolOutput> {
       if (stderr) parts.push(`--- stderr ---\n${stderr.trimEnd()}`);
       if (!stdout && !stderr) parts.push("(no output)");
       const raw = parts.join("\n");
-      const reduced = truncate(raw, OUTPUT_CAP);
       resolve({
-        content: reduced,
+        content: raw,
         rawBytes: Buffer.byteLength(raw, "utf8"),
-        reducedBytes: Buffer.byteLength(reduced, "utf8"),
+        reducedBytes: Buffer.byteLength(raw, "utf8"),
       });
     });
   });

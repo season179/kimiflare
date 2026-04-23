@@ -3,7 +3,7 @@ import { promisify } from "node:util";
 import { readFile } from "node:fs/promises";
 import fg from "fast-glob";
 import type { ToolSpec, ToolOutput } from "./registry.js";
-import { resolvePath, truncate } from "../util/paths.js";
+import { resolvePath } from "../util/paths.js";
 
 const pExecFile = promisify(execFile);
 
@@ -71,11 +71,10 @@ async function runRipgrep(
     const { stdout } = await pExecFile("rg", rgArgs, { maxBuffer: 10 * 1024 * 1024 });
     const trimmed = stdout.trim();
     if (!trimmed) return { content: "(no matches)", rawBytes: 0, reducedBytes: 0 };
-    const reduced = truncate(trimmed, 30_000);
     return {
-      content: reduced,
+      content: trimmed,
       rawBytes: Buffer.byteLength(trimmed, "utf8"),
-      reducedBytes: Buffer.byteLength(reduced, "utf8"),
+      reducedBytes: Buffer.byteLength(trimmed, "utf8"),
     };
   } catch (e) {
     const err = e as { code?: number; stderr?: string };
@@ -120,10 +119,9 @@ async function runJsFallback(
   }
   if (!out.length) return { content: "(no matches)", rawBytes: 0, reducedBytes: 0 };
   const raw = out.join("\n");
-  const reduced = truncate(raw, 30_000);
   return {
-    content: reduced,
+    content: raw,
     rawBytes: Buffer.byteLength(raw, "utf8"),
-    reducedBytes: Buffer.byteLength(reduced, "utf8"),
+    reducedBytes: Buffer.byteLength(raw, "utf8"),
   };
 }

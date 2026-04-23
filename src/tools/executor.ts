@@ -7,6 +7,9 @@ import { globTool } from "./glob.js";
 import { grepTool } from "./grep.js";
 import { webFetchTool } from "./web-fetch.js";
 import { tasksSetTool } from "./tasks.js";
+import { ToolArtifactStore } from "./artifact-store.js";
+import { reduceToolOutput, DEFAULT_REDUCER_CONFIG } from "./reducer.js";
+import { makeExpandArtifactTool } from "./expand-artifact.js";
 
 export const ALL_TOOLS: ToolSpec[] = [
   readTool,
@@ -44,14 +47,19 @@ export interface ToolResult {
   rawBytes?: number;
   /** Final output bytes after truncation/capping. */
   reducedBytes?: number;
+  /** Artifact ID if the raw output was stored for later expansion. */
+  artifactId?: string;
 }
 
 export class ToolExecutor {
   private sessionAllowed = new Set<string>();
   private tools: Map<string, ToolSpec>;
+  private artifactStore: ToolArtifactStore;
 
   constructor(tools: ToolSpec[] = ALL_TOOLS) {
     this.tools = new Map(tools.map((t) => [t.name, t]));
+    this.artifactStore = new ToolArtifactStore();
+    this.tools.set("expand_artifact", makeExpandArtifactTool(this.artifactStore));
   }
 
   list(): ToolSpec[] {
@@ -68,6 +76,10 @@ export class ToolExecutor {
 
   clearSessionPermissions(): void {
     this.sessionAllowed.clear();
+  }
+
+  clearArtifacts(): void {
+    this.artifactStore.clear();
   }
 
   async run(
@@ -116,13 +128,21 @@ export class ToolExecutor {
     try {
       const result = await tool.run(args as never, ctx);
       const normalized = normalizeToolOutput(result);
+      const reduced = reduceToolOutput(
+        call.name,
+        normalized.content,
+        args,
+        this.artifactStore,
+        DEFAULT_REDUCER_CONFIG,
+      );
       return {
         tool_call_id: call.id,
         name: call.name,
-        content: normalized.content,
+        content: reduced.content,
         ok: true,
-        rawBytes: normalized.rawBytes,
-        reducedBytes: normalized.reducedBytes,
+        rawBytes: reduced.rawBytes,
+        reducedBytes: reduced.reducedBytes,
+        artifactId: reduced.artifactId,
       };
     } catch (e) {
       const msg = `Error running ${call.name}: ${(e as Error).message ?? String(e)}`;
