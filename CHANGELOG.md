@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.15.0](https://github.com/sinameraji/kimiflare/compare/v0.14.0...v0.15.0) (2026-04-23)
+
+
+### Features
+
+* cache-stable prefix engineering + instrumentation ([8725816](https://github.com/sinameraji/kimiflare/commit/87258167a9401824ba8d1e8b40c27f19c5ab9262))
+* cache-stable prefix engineering + instrumentation ([6b54723](https://github.com/sinameraji/kimiflare/commit/6b54723b9d80e6fe6d0cbf824dd0d52a7c38df0d))
+
 ## [0.14.0](https://github.com/sinameraji/kimiflare/compare/v0.13.7...v0.14.0) (2026-04-23)
 
 
