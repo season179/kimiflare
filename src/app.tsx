@@ -814,6 +814,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         sessionIdRef.current = null;
         sessionStateRef.current = emptySessionState();
         artifactStoreRef.current = new ArtifactStore();
+        executorRef.current.clearArtifacts();
         setEvents([]);
         setUsage(null);
         setTasks([]);

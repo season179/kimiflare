@@ -1,19 +1,17 @@
 import TurndownService from "turndown";
 import type { ToolSpec, ToolOutput } from "./registry.js";
-import { truncate } from "../util/paths.js";
 
 interface Args {
   url: string;
 }
 
 const MAX_BYTES = 1 * 1024 * 1024;
-const MAX_OUTPUT = 100_000;
 const TIMEOUT_MS = 20_000;
 
 export const webFetchTool: ToolSpec<Args> = {
   name: "web_fetch",
   description:
-    "Fetch a URL over HTTPS and return its content. HTML pages are converted to markdown. Output is capped at ~100KB.",
+    "Fetch a URL over HTTPS and return its content. HTML pages are converted to markdown. Large pages are reduced to a summary by default; use expand_artifact to retrieve the full content.",
   parameters: {
     type: "object",
     properties: {
@@ -43,11 +41,10 @@ export const webFetchTool: ToolSpec<Args> = {
       } else {
         raw = `# ${args.url}\n\n${bounded}`;
       }
-      const reduced = truncate(raw, MAX_OUTPUT);
       return {
-        content: reduced,
+        content: raw,
         rawBytes: Buffer.byteLength(raw, "utf8"),
-        reducedBytes: Buffer.byteLength(reduced, "utf8"),
+        reducedBytes: Buffer.byteLength(raw, "utf8"),
       };
     } finally {
       clearTimeout(timer);

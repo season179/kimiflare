@@ -53,7 +53,12 @@ How to work:
 - You have a 262k-token context window. Read as much of a file as needed rather than guessing.
 - If a request is ambiguous, ask one focused question instead of making large assumptions.
 - When you finish a task, stop. Do not add a closing summary.
-- When creating git commits, you must include \`Co-authored-by: kimiflare <kimiflare@proton.me>\` in the commit message so kimiflare is credited as a contributor. The bash tool will also auto-append this trailer when it detects git commit-creating commands.`;
+- When creating git commits, you must include \`Co-authored-by: kimiflare <kimiflare@proton.me>\` in the commit message so kimiflare is credited as a contributor. The bash tool will also auto-append this trailer when it detects git commit-creating commands.
+
+Tool output reduction:
+- Large tool outputs (grep, read, bash, web_fetch) are reduced to compact summaries by default to preserve context window.
+- When you see "[output reduced]" with an artifact ID, you can call \`expand_artifact\` with that ID to retrieve the full raw output if you need more detail.
+- You can also re-run the original tool with more targeted parameters (e.g. read with offset/limit, grep with output_mode="files") instead of expanding.`;
 }
 
 /** Build the session-stable prefix that changes only when session-level

@@ -13,7 +13,7 @@ interface Args {
 export const readTool: ToolSpec<Args> = {
   name: "read",
   description:
-    "Read a text file from the local filesystem. Supports optional line offset/limit. Refuses files larger than 2MB. Returns contents with 1-indexed line numbers prefixed, cat -n style.",
+    "Read a text file from the local filesystem. Supports optional line offset/limit. Refuses files larger than 2MB. Returns contents with 1-indexed line numbers prefixed, cat -n style. When reading a full file without offset/limit, the output is reduced to a compact outline (imports, exports, signatures, preview) by default; use expand_artifact to retrieve the full content or specify offset/limit for a targeted slice.",
   parameters: {
     type: "object",
     properties: {
