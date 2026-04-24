@@ -54,6 +54,7 @@ export interface CostDebugEntry {
   toolSavingsPct: number;
   cacheDiagnostics?: CacheDiagnostics;
   compaction?: CompactionMetrics;
+  shadowStrip?: ShadowStripMetrics;
 }
 
 function debugDir(): string {
@@ -130,6 +131,12 @@ export async function logCostDebug(entry: CostDebugEntry): Promise<void> {
   await appendFile(debugPath(), JSON.stringify(entry) + "\n", "utf8");
 }
 
+export interface ShadowStripMetrics {
+  originalApproxTokens: number;
+  strippedApproxTokens: number;
+  savingsPct: number;
+}
+
 export interface TurnDebugContext {
   sessionId: string;
   turn: number;
@@ -138,6 +145,7 @@ export interface TurnDebugContext {
   usage: Usage;
   previousMessages?: ChatMessage[];
   compaction?: CompactionMetrics;
+  shadowStrip?: ShadowStripMetrics;
 }
 
 /** Serialize the prompt prefix (all leading system messages) for comparison. */
@@ -242,5 +250,6 @@ export async function logTurnDebug(ctx: TurnDebugContext): Promise<void> {
     toolSavingsPct: toolTotalRaw > 0 ? Math.round(((toolTotalRaw - toolTotalReduced) / toolTotalRaw) * 100) : 0,
     cacheDiagnostics,
     compaction: ctx.compaction,
+    shadowStrip: ctx.shadowStrip,
   });
 }

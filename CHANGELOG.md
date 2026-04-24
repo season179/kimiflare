@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.17.0](https://github.com/sinameraji/kimiflare/compare/v0.16.0...v0.17.0) (2026-04-23)
+
+
+### Features
+
+* token-efficient tool result reducers with progressive disclosure ([1e42eb4](https://github.com/sinameraji/kimiflare/commit/1e42eb47104e019840e78338dba6016419491ea0))
+* token-efficient tool result reducers with progressive disclosure ([0ce4bf8](https://github.com/sinameraji/kimiflare/commit/0ce4bf891d211a64ddaaa81e6d242857fa23d6a5))
+
+
+### Bug Fixes
+
+* lock down plan mode to strictly read-only bash commands ([d33c7cb](https://github.com/sinameraji/kimiflare/commit/d33c7cbc13e8b08d3280aa1fd3779f00225c5fdd))
+* lock down plan mode to strictly read-only bash commands ([78b87fc](https://github.com/sinameraji/kimiflare/commit/78b87fc741723749700491fc5797e26dd4560f8b))
+* show USD currency symbol in status bar cost display ([eb6e0ea](https://github.com/sinameraji/kimiflare/commit/eb6e0eacf2b426e1cf39c7226d2af840924e38d1))
+* show USD currency symbol in status bar cost display ([80b43f2](https://github.com/sinameraji/kimiflare/commit/80b43f2360eeb8394794974c128e1bbf104ee059))
+* show USD currency symbol in status bar cost display ([2378d8e](https://github.com/sinameraji/kimiflare/commit/2378d8e428472c2645d74f1a849412eb8f3b247c))
+
 ## [0.16.0](https://github.com/sinameraji/kimiflare/compare/v0.15.0...v0.16.0) (2026-04-23)
 
 
