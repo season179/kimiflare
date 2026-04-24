@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.18.0](https://github.com/sinameraji/kimiflare/compare/v0.17.0...v0.18.0) (2026-04-24)
+
+
+### Features
+
+* strip reasoning_content from historical assistant messages ([63ca8aa](https://github.com/sinameraji/kimiflare/commit/63ca8aa6a4aad13861a9e0978d8dea94208e974f))
+* strip reasoning_content from historical assistant messages ([d393964](https://github.com/sinameraji/kimiflare/commit/d39396420855935eb1dfb3a354eafbf077858df1)), closes [#94](https://github.com/sinameraji/kimiflare/issues/94)
+
 ## [0.17.0](https://github.com/sinameraji/kimiflare/compare/v0.16.0...v0.17.0) (2026-04-23)
 
 
