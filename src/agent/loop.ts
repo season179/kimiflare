@@ -4,7 +4,8 @@ import type { ToolExecutor, PermissionAsker, ToolResult } from "../tools/executo
 import { sanitizeString } from "./messages.js";
 import type { ChatMessage, ToolCall, Usage } from "./messages.js";
 import type { Task } from "../tasks-state.js";
-import { logTurnDebug } from "../cost-debug.js";
+import { logTurnDebug, analyzePrompt } from "../cost-debug.js";
+import { stripHistoricalReasoning } from "./strip-reasoning.js";
 
 export interface AgentCallbacks {
   onAssistantStart?: () => void;
@@ -53,11 +54,52 @@ export async function runAgentTurn(opts: AgentTurnOpts): Promise<void> {
     let reasoning = "";
     opts.callbacks.onAssistantStart?.();
 
+    const stripReasoning = process.env.KIMIFLARE_STRIP_REASONING === "1";
+    const shadowStrip = process.env.KIMIFLARE_SHADOW_STRIP === "1";
+    const keepLastRaw = process.env.KIMIFLARE_REASONING_KEEP_LAST;
+    const keepLast = keepLastRaw ? parseInt(keepLastRaw, 10) : 1;
+
+    let apiMessages = opts.messages;
+    let shadowStripMetrics:
+      | { originalApproxTokens: number; strippedApproxTokens: number; savingsPct: number }
+      | undefined;
+
+    if (stripReasoning || shadowStrip) {
+      const stripped = stripHistoricalReasoning(opts.messages, {
+        keepLast: Number.isNaN(keepLast) ? 1 : keepLast,
+      });
+      if (shadowStrip) {
+        const originalSections = analyzePrompt(opts.messages);
+        const strippedSections = analyzePrompt(stripped);
+        const originalApproxTokens = originalSections.reduce(
+          (sum, s) => sum + s.approxTokens,
+          0,
+        );
+        const strippedApproxTokens = strippedSections.reduce(
+          (sum, s) => sum + s.approxTokens,
+          0,
+        );
+        shadowStripMetrics = {
+          originalApproxTokens,
+          strippedApproxTokens,
+          savingsPct:
+            originalApproxTokens > 0
+              ? Math.round(
+                  ((originalApproxTokens - strippedApproxTokens) / originalApproxTokens) * 100,
+                )
+              : 0,
+        };
+      }
+      if (stripReasoning) {
+        apiMessages = stripped;
+      }
+    }
+
     const events = runKimi({
       accountId: opts.accountId,
       apiToken: opts.apiToken,
       model: opts.model,
-      messages: opts.messages,
+      messages: apiMessages,
       tools: toolDefs,
       signal: opts.signal,
       temperature: opts.temperature,
@@ -130,6 +172,7 @@ export async function runAgentTurn(opts: AgentTurnOpts): Promise<void> {
           previousMessages,
           toolResults,
           usage: lastUsage,
+          shadowStrip: shadowStripMetrics,
         });
       }
       return;
@@ -160,6 +203,7 @@ export async function runAgentTurn(opts: AgentTurnOpts): Promise<void> {
         previousMessages,
         toolResults,
         usage: lastUsage,
+        shadowStrip: shadowStripMetrics,
       });
     }
   }
