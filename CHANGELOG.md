@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.21.0](https://github.com/sinameraji/kimiflare/compare/v0.20.3...v0.21.0) (2026-04-24)
+
+
+### Features
+
+* **agent:** send x-session-affinity header for prefix caching ([af04d7d](https://github.com/sinameraji/kimiflare/commit/af04d7d932148f935fba24641506d66f31863b9c))
+* **agent:** send x-session-affinity header for prefix caching ([af04d7d](https://github.com/sinameraji/kimiflare/commit/af04d7d932148f935fba24641506d66f31863b9c))
+* **agent:** send x-session-affinity header for prefix caching ([d4ad35f](https://github.com/sinameraji/kimiflare/commit/d4ad35f51498cfc1c352fffa7889e73011d12fb4))
+* **agent:** send x-session-affinity header for prefix caching ([600c1b9](https://github.com/sinameraji/kimiflare/commit/600c1b96b3a6d2fc32784f0e85e0b061a67842d8))
+
+
+### Bug Fixes
+
+* configure release-please to use plain v tags ([764bd01](https://github.com/sinameraji/kimiflare/commit/764bd01d57038a5ddffb8835530e07b550d56b29))
+* configure release-please to use plain v tags ([764bd01](https://github.com/sinameraji/kimiflare/commit/764bd01d57038a5ddffb8835530e07b550d56b29))
+* configure release-please to use plain v tags ([86886f0](https://github.com/sinameraji/kimiflare/commit/86886f0b0fc725dd62a865acf77a620bdc186691))
+
 ## [0.20.3](https://github.com/sinameraji/kimiflare/compare/v0.18.0...v0.20.3) (2026-04-24)
 
 
