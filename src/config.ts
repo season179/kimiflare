@@ -17,6 +17,11 @@ export interface KimiConfig {
   accountId: string;
   apiToken: string;
   model: string;
+  aiGatewayId?: string;
+  aiGatewayCacheTtl?: number;
+  aiGatewaySkipCache?: boolean;
+  aiGatewayCollectLogPayload?: boolean;
+  aiGatewayMetadata?: Record<string, string | number | boolean>;
   theme?: string;
   reasoningEffort?: ReasoningEffort;
   coauthor?: boolean;
@@ -52,6 +57,44 @@ function readCoauthorEnv(): { enabled: boolean; name: string; email: string } | 
   return { enabled: true, name, email };
 }
 
+function readBooleanEnv(name: string): boolean | undefined {
+  const raw = process.env[name];
+  if (raw === undefined) return undefined;
+  const normalized = raw.toLowerCase();
+  if (normalized === "1" || normalized === "true") return true;
+  if (normalized === "0" || normalized === "false") return false;
+  return undefined;
+}
+
+function readNumberEnv(name: string): number | undefined {
+  const raw = process.env[name];
+  if (!raw) return undefined;
+  const parsed = parseInt(raw, 10);
+  return Number.isNaN(parsed) ? undefined : parsed;
+}
+
+function readGatewayMetadataEnv(): Record<string, string | number | boolean> | undefined {
+  const raw = process.env.KIMIFLARE_AI_GATEWAY_METADATA;
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return undefined;
+    const out: Record<string, string | number | boolean> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean"
+      ) {
+        out[key] = value;
+      }
+    }
+    return Object.keys(out).length > 0 ? out : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function loadConfig(): Promise<KimiConfig | null> {
   const envAccount = process.env.CLOUDFLARE_ACCOUNT_ID ?? process.env.CF_ACCOUNT_ID;
   const envToken = process.env.CLOUDFLARE_API_TOKEN ?? process.env.CF_API_TOKEN;
@@ -59,6 +102,13 @@ export async function loadConfig(): Promise<KimiConfig | null> {
   const envEffort = readReasoningEffortEnv();
   const envTheme = process.env.KIMI_THEME;
   const envCoauthor = readCoauthorEnv();
+  const envAiGatewayId = process.env.KIMIFLARE_AI_GATEWAY_ID;
+  const envAiGatewayCacheTtl = readNumberEnv("KIMIFLARE_AI_GATEWAY_CACHE_TTL");
+  const envAiGatewaySkipCache = readBooleanEnv("KIMIFLARE_AI_GATEWAY_SKIP_CACHE");
+  const envAiGatewayCollectLogPayload = readBooleanEnv(
+    "KIMIFLARE_AI_GATEWAY_COLLECT_LOG_PAYLOAD",
+  );
+  const envAiGatewayMetadata = readGatewayMetadataEnv();
 
   const envCacheStable = process.env.KIMIFLARE_CACHE_STABLE_PROMPTS;
   const cacheStablePrompts = envCacheStable === "0" || envCacheStable === "false" ? false : true;
@@ -74,6 +124,11 @@ export async function loadConfig(): Promise<KimiConfig | null> {
       accountId: envAccount,
       apiToken: envToken,
       model: envModel,
+      aiGatewayId: envAiGatewayId,
+      aiGatewayCacheTtl: envAiGatewayCacheTtl,
+      aiGatewaySkipCache: envAiGatewaySkipCache,
+      aiGatewayCollectLogPayload: envAiGatewayCollectLogPayload,
+      aiGatewayMetadata: envAiGatewayMetadata,
       theme: envTheme,
       reasoningEffort: envEffort,
       coauthor: envCoauthor?.enabled ?? true,
@@ -93,6 +148,12 @@ export async function loadConfig(): Promise<KimiConfig | null> {
         accountId: envAccount ?? parsed.accountId,
         apiToken: envToken ?? parsed.apiToken,
         model: envModel ?? parsed.model ?? DEFAULT_MODEL,
+        aiGatewayId: envAiGatewayId ?? parsed.aiGatewayId,
+        aiGatewayCacheTtl: envAiGatewayCacheTtl ?? parsed.aiGatewayCacheTtl,
+        aiGatewaySkipCache: envAiGatewaySkipCache ?? parsed.aiGatewaySkipCache,
+        aiGatewayCollectLogPayload:
+          envAiGatewayCollectLogPayload ?? parsed.aiGatewayCollectLogPayload,
+        aiGatewayMetadata: envAiGatewayMetadata ?? parsed.aiGatewayMetadata,
         theme: envTheme ?? parsed.theme,
         reasoningEffort: envEffort ?? parsed.reasoningEffort,
         coauthor: envCoauthor?.enabled ?? parsed.coauthor ?? true,

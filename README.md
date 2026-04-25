@@ -24,7 +24,7 @@
 
 - **262k context window** — Read entire modules, large configs, and full stack traces without the model losing track.
 - **Image understanding** — Drop image paths into your prompt (PNG, JPG, WebP, GIF, BMP). The model sees them inline — great for UI reviews, diagrams, screenshots, and mockups.
-- **Direct to Cloudflare** — No AI Gateway, no proxy, no OpenAI SDK. Your traffic goes straight to Workers AI from your account.
+- **Direct by default** — No proxy, no OpenAI SDK. Your traffic goes straight to Workers AI from your account, with optional AI Gateway routing for user-owned logging, caching, and analytics.
 - **Plan mode** — Ask the agent to research and produce a plan without touching your filesystem. Review it, then exit plan mode to execute.
 
 ## Quick start
@@ -57,6 +57,7 @@ Requires Node.js ≥ 20.
 | **Streaming reasoning** | Toggle the model's chain-of-thought with `/reasoning` or `Ctrl-R`. See how it thinks in real time. |
 | **Image understanding** | Drop image paths (PNG, JPG, WebP, GIF, BMP up to 5 MB) into any prompt. The model sees them inline — perfect for UI reviews, diagrams, and screenshots. |
 | **Live cost tracking** | Status bar shows real-time cost based on Cloudflare pricing: `$0.95/M input`, `$0.16/M cached`, `$4.00/M output`. |
+| **Optional AI Gateway** | Route Workers AI traffic through your own Cloudflare AI Gateway for request logs, cache status, and analytics while keeping your API token local. |
 | **Session persistence** | Every turn is auto-saved. `/resume` lists past sessions (with message counts) in a paginated picker. |
 | **Smart permissions** | Bash session-allow is keyed by the first token (e.g., allow all `git` commands). Write/edit show a unified diff before you approve. |
 | **Project context (`/init`)** | Scans your repo and writes a concise `KIMI.md` — build commands, layout, conventions. Auto-loaded on every launch. |
@@ -76,6 +77,8 @@ Then either export them each shell:
 ```sh
 export CLOUDFLARE_ACCOUNT_ID=...
 export CLOUDFLARE_API_TOKEN=...
+# Optional: route through a Cloudflare AI Gateway you own
+export KIMIFLARE_AI_GATEWAY_ID=...
 ```
 
 or save them once (`chmod 600` automatically):
@@ -86,11 +89,35 @@ cat > ~/.config/kimiflare/config.json <<'EOF'
 {
   "accountId": "YOUR_ACCOUNT_ID",
   "apiToken":  "YOUR_API_TOKEN",
-  "model":     "@cf/moonshotai/kimi-k2.6"
+  "model":     "@cf/moonshotai/kimi-k2.6",
+  "aiGatewayId": "YOUR_GATEWAY_NAME"
 }
 EOF
 chmod 600 ~/.config/kimiflare/config.json
 ```
+
+### Optional AI Gateway
+
+kimiflare talks directly to Workers AI unless `aiGatewayId` is configured. When set, chat completions are sent to Cloudflare's native Workers AI Gateway endpoint:
+
+```text
+https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/workers-ai/{model_id}
+```
+
+Create a gateway in the Cloudflare dashboard under **AI > AI Gateway**, then set `aiGatewayId` in `~/.config/kimiflare/config.json` or export `KIMIFLARE_AI_GATEWAY_ID`. The same Workers AI API token stays on your machine and is sent to Cloudflare.
+
+Optional per-request controls:
+
+```json
+{
+  "aiGatewayCacheTtl": 3600,
+  "aiGatewaySkipCache": false,
+  "aiGatewayCollectLogPayload": false,
+  "aiGatewayMetadata": { "tool": "kimiflare" }
+}
+```
+
+`cf-aig-cache-status` from AI Gateway is shown separately from Workers AI prompt-token caching (`cached_tokens`). If you enable gateway logs, kimiflare records metadata such as log id, cache hit/miss, tokens, duration, and status when Cloudflare returns it; prompt and response bodies are not stored by kimiflare.
 
 ## MCP servers (Model Context Protocol)
 
@@ -271,7 +298,7 @@ All tool calls show inline; mutating ones require per-call approval the first ti
                                        @cf/moonshotai/kimi-k2.6
 ```
 
-Direct `fetch` to Workers AI, OpenAI-compatible `messages` + `tools` payload, SSE stream with reasoning + content + tool-call deltas accumulated by index.
+Direct `fetch` to Workers AI by default, or the native Workers AI AI Gateway endpoint when `aiGatewayId` is configured. The payload remains OpenAI-compatible `messages` + `tools`, with an SSE stream containing reasoning + content + tool-call deltas accumulated by index.
 
 ## Development
 

@@ -1,4 +1,5 @@
 import { runKimi } from "./client.js";
+import type { AiGatewayOptions } from "./client.js";
 import type { ChatMessage } from "./messages.js";
 
 export interface CompactOpts {
@@ -8,6 +9,7 @@ export interface CompactOpts {
   messages: ChatMessage[];
   keepLastTurns?: number;
   signal?: AbortSignal;
+  gateway?: AiGatewayOptions;
 }
 
 export interface CompactResult {
@@ -89,6 +91,7 @@ export async function compactMessages(opts: CompactOpts): Promise<CompactResult>
     signal: opts.signal,
     temperature: 0.1,
     reasoningEffort: "low",
+    gateway: opts.gateway,
   });
   for await (const ev of events) {
     if (ev.type === "text") summary += ev.delta;

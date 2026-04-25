@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { loadConfig, DEFAULT_MODEL } from "./config.js";
 import { runAgentTurn } from "./agent/loop.js";
+import type { AiGatewayOptions } from "./agent/client.js";
 import { buildSystemPrompt } from "./agent/system-prompt.js";
 import { ToolExecutor, ALL_TOOLS } from "./tools/executor.js";
 import type { ChatMessage } from "./agent/messages.js";
@@ -92,7 +93,23 @@ interface PrintOpts {
   coauthor?: boolean;
   coauthorName?: string;
   coauthorEmail?: string;
+  aiGatewayId?: string;
+  aiGatewayCacheTtl?: number;
+  aiGatewaySkipCache?: boolean;
+  aiGatewayCollectLogPayload?: boolean;
+  aiGatewayMetadata?: Record<string, string | number | boolean>;
   updateResult: UpdateCheckResult;
+}
+
+function gatewayFromPrintOpts(opts: PrintOpts): AiGatewayOptions | undefined {
+  if (!opts.aiGatewayId) return undefined;
+  return {
+    id: opts.aiGatewayId,
+    cacheTtl: opts.aiGatewayCacheTtl,
+    skipCache: opts.aiGatewaySkipCache,
+    collectLogPayload: opts.aiGatewayCollectLogPayload,
+    metadata: opts.aiGatewayMetadata,
+  };
 }
 
 async function runPrintMode(opts: PrintOpts): Promise<void> {
@@ -120,6 +137,7 @@ async function runPrintMode(opts: PrintOpts): Promise<void> {
     accountId: opts.accountId,
     apiToken: opts.apiToken,
     model: opts.model,
+    gateway: gatewayFromPrintOpts(opts),
     messages,
     tools: ALL_TOOLS,
     executor,

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Box, Text } from "ink";
 import Spinner from "ink-spinner";
 import type { Usage } from "../agent/messages.js";
+import type { GatewayMeta } from "../agent/client.js";
 import type { Theme } from "./theme.js";
 import type { ReasoningEffort } from "../config.js";
 import type { Mode } from "../mode.js";
@@ -18,9 +19,10 @@ interface Props {
   contextLimit: number;
   hasUpdate?: boolean;
   latestVersion?: string | null;
+  gatewayMeta?: GatewayMeta | null;
 }
 
-export function StatusBar({ model, usage, thinking, turnStartedAt, theme, mode, effort, contextLimit, hasUpdate, latestVersion }: Props) {
+export function StatusBar({ model, usage, thinking, turnStartedAt, theme, mode, effort, contextLimit, hasUpdate, latestVersion, gatewayMeta }: Props) {
   const [now, setNow] = useState(Date.now());
   const modeColor =
     mode === "plan" ? theme.modeBadge.plan : mode === "auto" ? theme.modeBadge.auto : theme.modeBadge.edit;
@@ -57,7 +59,7 @@ export function StatusBar({ model, usage, thinking, turnStartedAt, theme, mode, 
       {usage && (
         <Box>
           <Text color={theme.info.color} dimColor={theme.info.dim}>
-            {buildRightParts(usage, contextLimit).join("  ·  ")}
+            {buildRightParts(usage, contextLimit, gatewayMeta).join("  ·  ")}
           </Text>
           {warn ? (
             <Text color={theme.warn} bold>
@@ -75,16 +77,28 @@ export function StatusBar({ model, usage, thinking, turnStartedAt, theme, mode, 
   );
 }
 
-function buildRightParts(usage: Usage, contextLimit: number): string[] {
+export function buildRightParts(
+  usage: Usage,
+  contextLimit: number,
+  gatewayMeta?: GatewayMeta | null,
+): string[] {
   const cached = usage.prompt_tokens_details?.cached_tokens ?? 0;
   const cost = calculateCost(usage.prompt_tokens, usage.completion_tokens, cached);
   const pct = Math.round((usage.prompt_tokens / contextLimit) * 100);
-  return [
+  const parts = [
     `in ${usage.prompt_tokens}${cached ? ` (${cached} cached)` : ""}`,
     `out ${usage.completion_tokens}`,
     `ctx ${pct}%`,
     `$${cost.total.toFixed(5)}`,
   ];
+  const gatewayCache = formatGatewayCacheStatus(gatewayMeta);
+  if (gatewayCache) parts.push(gatewayCache);
+  return parts;
+}
+
+export function formatGatewayCacheStatus(gatewayMeta?: GatewayMeta | null): string | null {
+  const status = gatewayMeta?.cacheStatus?.trim();
+  return status ? `AI Gateway · cache ${status.toLowerCase()}` : null;
 }
 
 function shortModel(m: string): string {
