@@ -1392,7 +1392,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
   return (
     <Box flexDirection="column">
       {!hasConversation && events.length === 0 ? (
-        <Welcome theme={theme} />
+        <Welcome theme={theme} accountId={cfg.accountId} />
       ) : (
         <ChatView events={events} showReasoning={showReasoning} theme={theme} verbose={verbose} />
       )}
