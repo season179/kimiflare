@@ -4,6 +4,10 @@
  *
  * Workers AI bills in Neurons ($0.011 / 1,000 Neurons).
  * The token prices below are the equivalent per-token rates.
+ *
+ * Cloudflare AI Gateway routing does not change Workers AI token pricing for
+ * self-owned gateways. Gateway logs may report per-request cost; when present,
+ * usage tracking can use that metadata as a more accurate request total.
  */
 
 /** Price per million uncached input tokens (USD) */

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Box, Text, useApp, useInput, render } from "ink";
 
 import { runAgentTurn } from "./agent/loop.js";
+import type { AiGatewayOptions, GatewayMeta } from "./agent/client.js";
 import { buildSystemPrompt, buildSystemMessages, buildSessionPrefix } from "./agent/system-prompt.js";
 import { compactMessages } from "./agent/compact.js";
 import {
@@ -55,11 +56,17 @@ import {
 import { unlink } from "node:fs/promises";
 import { encodeImageFile, isImagePath, type EncodedImage } from "./util/image.js";
 import { recordUsage, getCostReport, formatCostReport } from "./usage-tracker.js";
+import type { GatewayUsageLookup } from "./usage-tracker.js";
 
 interface Cfg {
   accountId: string;
   apiToken: string;
   model: string;
+  aiGatewayId?: string;
+  aiGatewayCacheTtl?: number;
+  aiGatewaySkipCache?: boolean;
+  aiGatewayCollectLogPayload?: boolean;
+  aiGatewayMetadata?: Record<string, string | number | boolean>;
   theme?: string;
   reasoningEffort?: ReasoningEffort;
   coauthor?: boolean;
@@ -69,6 +76,30 @@ interface Cfg {
   cacheStablePrompts?: boolean;
   compiledContext?: boolean;
   imageHistoryTurns?: number;
+}
+
+function gatewayFromConfig(cfg: Cfg): AiGatewayOptions | undefined {
+  if (!cfg.aiGatewayId) return undefined;
+  return {
+    id: cfg.aiGatewayId,
+    cacheTtl: cfg.aiGatewayCacheTtl,
+    skipCache: cfg.aiGatewaySkipCache,
+    collectLogPayload: cfg.aiGatewayCollectLogPayload,
+    metadata: cfg.aiGatewayMetadata,
+  };
+}
+
+function gatewayUsageLookupFromConfig(
+  cfg: Cfg,
+  meta: GatewayMeta | null,
+): GatewayUsageLookup | undefined {
+  if (!cfg.aiGatewayId || !meta) return undefined;
+  return {
+    accountId: cfg.accountId,
+    apiToken: cfg.apiToken,
+    gatewayId: cfg.aiGatewayId,
+    meta,
+  };
 }
 
 interface PendingPermission {
@@ -142,6 +173,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [usage, setUsage] = useState<Usage | null>(null);
+  const [gatewayMeta, setGatewayMeta] = useState<GatewayMeta | null>(null);
   const [showReasoning, setShowReasoning] = useState(false);
   const [perm, setPerm] = useState<PendingPermission | null>(null);
   const [queue, setQueue] = useState<Array<{ full: string; display: string }>>([]);
@@ -177,6 +209,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
   const effortRef = useRef<ReasoningEffort>(effort);
   const tasksRef = useRef<Task[]>([]);
   const usageRef = useRef<Usage | null>(null);
+  const gatewayMetaRef = useRef<GatewayMeta | null>(null);
   const updateCheckedRef = useRef(false);
   const sessionStateRef = useRef<SessionState>(emptySessionState());
   const artifactStoreRef = useRef<ArtifactStore>(new ArtifactStore());
@@ -472,6 +505,11 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
     [],
   );
 
+  const updateGatewayMeta = useCallback((meta: GatewayMeta) => {
+    gatewayMetaRef.current = meta;
+    setGatewayMeta(meta);
+  }, []);
+
   const runCompact = useCallback(async () => {
     if (!cfg) return;
     if (busy) {
@@ -514,6 +552,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
           model: cfg.model,
           messages: messagesRef.current,
           signal: controller.signal,
+          gateway: gatewayFromConfig(cfg),
         });
         if (result.replacedCount === 0) {
           setEvents((e) => [
@@ -600,6 +639,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         accountId: cfg.accountId,
         apiToken: cfg.apiToken,
         model: cfg.model,
+        gateway: gatewayFromConfig(cfg),
         messages: messagesRef.current,
         tools: [...ALL_TOOLS, ...mcpToolsRef.current],
         executor: executorRef.current,
@@ -661,9 +701,12 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
           onUsage: (u) => {
             usageRef.current = u;
             setUsage(u);
-            const sid = ensureSessionId();
-            void recordUsage(sid, u);
           },
+          onUsageFinal: (u, meta) => {
+            const sid = ensureSessionId();
+            void recordUsage(sid, u, gatewayUsageLookupFromConfig(cfg, meta ?? gatewayMetaRef.current));
+          },
+          onGatewayMeta: updateGatewayMeta,
           askPermission: (req) =>
             new Promise<PermissionDecision>((resolve) => {
               if (modeRef.current === "auto") {
@@ -731,7 +774,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
       activeAsstIdRef.current = null;
       activeControllerRef.current = null;
     }
-  }, [cfg, busy, updateAssistant, updateTool]);
+  }, [cfg, busy, updateAssistant, updateTool, updateGatewayMeta]);
 
   const handleResumePick = useCallback(
     async (picked: SessionSummary | null) => {
@@ -763,6 +806,8 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
           .filter((text) => text.length > 0);
         if (userMsgs.length > 0) setHistory(userMsgs);
         setUsage(null);
+        gatewayMetaRef.current = null;
+        setGatewayMeta(null);
       } catch (e) {
         setEvents((es) => [
           ...es,
@@ -818,6 +863,8 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         executorRef.current.clearArtifacts();
         setEvents([]);
         setUsage(null);
+        gatewayMetaRef.current = null;
+        setGatewayMeta(null);
         setTasks([]);
         setTasksStartedAt(null);
         setTasksStartTokens(0);
@@ -1137,6 +1184,8 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
       }
 
       setBusy(true);
+      gatewayMetaRef.current = null;
+      setGatewayMeta(null);
       setTurnStartedAt(Date.now());
 
       const controller = new AbortController();
@@ -1147,6 +1196,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
           accountId: cfg.accountId,
           apiToken: cfg.apiToken,
           model: cfg.model,
+          gateway: gatewayFromConfig(cfg),
           messages: messagesRef.current,
           tools: [...ALL_TOOLS, ...mcpToolsRef.current],
           executor: executorRef.current,
@@ -1213,6 +1263,11 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
               usageRef.current = u;
               setUsage(u);
             },
+            onUsageFinal: (u, meta) => {
+              const sid = ensureSessionId();
+              void recordUsage(sid, u, gatewayUsageLookupFromConfig(cfg, meta ?? gatewayMetaRef.current));
+            },
+            onGatewayMeta: updateGatewayMeta,
             onTasks: (nextTasks) => {
               const prevEmpty = tasksRef.current.length === 0;
               tasksRef.current = nextTasks;
@@ -1307,7 +1362,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         activeControllerRef.current = null;
       }
     },
-    [cfg, handleSlash, updateAssistant, updateTool, saveSessionSafe],
+    [cfg, handleSlash, updateAssistant, updateTool, saveSessionSafe, updateGatewayMeta],
   );
 
   useEffect(() => {
@@ -1436,6 +1491,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
             contextLimit={CONTEXT_LIMIT}
             hasUpdate={hasUpdate}
             latestVersion={latestVersion}
+            gatewayMeta={gatewayMeta}
           />
           <Box marginTop={1}>
             <Text color={theme.accent}>› </Text>

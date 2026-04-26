@@ -4,6 +4,7 @@ import { jsonReplacer, sanitizeString, stableStringify } from "./messages.js";
 import type { ChatMessage, ToolDef, Usage } from "./messages.js";
 
 export type KimiEvent =
+  | { type: "gateway_meta"; meta: GatewayMeta }
   | { type: "reasoning"; delta: string }
   | { type: "text"; delta: string }
   | { type: "tool_call_start"; index: number; id: string; name: string }
@@ -23,6 +24,22 @@ export interface RunKimiOpts {
   maxCompletionTokens?: number;
   reasoningEffort?: "low" | "medium" | "high";
   sessionId?: string;
+  gateway?: AiGatewayOptions;
+}
+
+export interface AiGatewayOptions {
+  id: string;
+  cacheTtl?: number;
+  skipCache?: boolean;
+  collectLogPayload?: boolean;
+  metadata?: Record<string, string | number | boolean>;
+}
+
+export interface GatewayMeta {
+  cacheStatus?: string;
+  logId?: string;
+  eventId?: string;
+  model?: string;
 }
 
 const RETRYABLE_CODES = new Set([3040]); // "Capacity temporarily exceeded"
@@ -42,7 +59,7 @@ function isRetryable(err: KimiApiError, attempt: number): boolean {
 }
 
 export async function* runKimi(opts: RunKimiOpts): AsyncGenerator<KimiEvent, void, void> {
-  const url = `https://api.cloudflare.com/client/v4/accounts/${opts.accountId}/ai/run/${opts.model}`;
+  const { url, headers: gatewayHeaders } = buildKimiRequestTarget(opts);
   const body: Record<string, unknown> = {
     messages: sanitizeMessagesForApi(opts.messages),
     ...(opts.tools && opts.tools.length
@@ -62,6 +79,7 @@ export async function* runKimi(opts: RunKimiOpts): AsyncGenerator<KimiEvent, voi
       const headers: Record<string, string> = {
         Authorization: `Bearer ${opts.apiToken}`,
         "Content-Type": "application/json",
+        ...gatewayHeaders,
       };
       if (opts.sessionId) {
         headers["X-Session-ID"] = opts.sessionId;
@@ -110,9 +128,57 @@ export async function* runKimi(opts: RunKimiOpts): AsyncGenerator<KimiEvent, voi
 
     if (!res.body) throw new KimiApiError("kimiflare: empty response body", undefined, res.status);
 
+    const meta = readGatewayMeta(res.headers);
+    if (meta) yield { type: "gateway_meta", meta };
     yield* parseStream(res.body, opts.signal);
     return;
   }
+}
+
+function buildKimiRequestTarget(opts: RunKimiOpts): { url: string; headers: Record<string, string> } {
+  if (!opts.gateway?.id) {
+    return {
+      url: `https://api.cloudflare.com/client/v4/accounts/${opts.accountId}/ai/run/${opts.model}`,
+      headers: {},
+    };
+  }
+
+  const headers: Record<string, string> = {};
+  if (opts.gateway.cacheTtl !== undefined) {
+    headers["cf-aig-cache-ttl"] = String(opts.gateway.cacheTtl);
+  }
+  if (opts.gateway.skipCache !== undefined) {
+    headers["cf-aig-skip-cache"] = String(opts.gateway.skipCache);
+  }
+  if (opts.gateway.collectLogPayload !== undefined) {
+    headers["cf-aig-collect-log-payload"] = String(opts.gateway.collectLogPayload);
+  }
+  if (opts.gateway.metadata && Object.keys(opts.gateway.metadata).length > 0) {
+    const entries = Object.entries(opts.gateway.metadata).slice(0, 5);
+    headers["cf-aig-metadata"] = stableStringify(Object.fromEntries(entries), jsonReplacer);
+  }
+
+  return {
+    url: `https://gateway.ai.cloudflare.com/v1/${opts.accountId}/${encodeURIComponent(
+      opts.gateway.id,
+    )}/workers-ai/${opts.model}`,
+    headers,
+  };
+}
+
+function readGatewayMeta(headers: Headers): GatewayMeta | null {
+  const meta: GatewayMeta = {};
+  const cacheStatus = headers.get("cf-aig-cache-status");
+  const logId = headers.get("cf-aig-log-id");
+  const eventId = headers.get("cf-aig-event-id");
+  const model = headers.get("cf-aig-model");
+
+  if (cacheStatus) meta.cacheStatus = cacheStatus;
+  if (logId) meta.logId = logId;
+  if (eventId) meta.eventId = eventId;
+  if (model) meta.model = model;
+
+  return Object.keys(meta).length > 0 ? meta : null;
 }
 
 async function* parseStream(

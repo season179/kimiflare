@@ -1,4 +1,5 @@
 import { runKimi } from "./client.js";
+import type { AiGatewayOptions, GatewayMeta } from "./client.js";
 import { toOpenAIToolDefs, type ToolSpec } from "../tools/registry.js";
 import type { ToolExecutor, PermissionAsker, ToolResult } from "../tools/executor.js";
 import { sanitizeString, stripOldImages } from "./messages.js";
@@ -15,6 +16,8 @@ export interface AgentCallbacks {
   onToolCallArgs?: (index: number, delta: string) => void;
   onToolCallFinalized?: (call: ToolCall) => void;
   onUsage?: (usage: Usage) => void;
+  onUsageFinal?: (usage: Usage, gatewayMeta?: GatewayMeta) => void;
+  onGatewayMeta?: (meta: GatewayMeta) => void;
   onAssistantFinal?: (msg: ChatMessage) => void;
   onToolResult?: (result: ToolResult) => void;
   onTasks?: (tasks: Task[]) => void;
@@ -37,6 +40,7 @@ export interface AgentTurnOpts {
   reasoningEffort?: "low" | "medium" | "high";
   coauthor?: { name: string; email: string };
   sessionId?: string;
+  gateway?: AiGatewayOptions;
   /** Drop image_url parts from user messages older than this many turns. */
   keepLastImageTurns?: number;
 }
@@ -54,6 +58,7 @@ export async function runAgentTurn(opts: AgentTurnOpts): Promise<void> {
     const toolResults: ToolResult[] = [];
     let content = "";
     let reasoning = "";
+    let gatewayMeta: GatewayMeta | undefined;
     opts.callbacks.onAssistantStart?.();
 
     const stripReasoning = process.env.KIMIFLARE_STRIP_REASONING === "1";
@@ -112,10 +117,15 @@ export async function runAgentTurn(opts: AgentTurnOpts): Promise<void> {
       maxCompletionTokens: opts.maxCompletionTokens,
       reasoningEffort: opts.reasoningEffort,
       sessionId: opts.sessionId,
+      gateway: opts.gateway,
     });
 
     for await (const ev of events) {
       switch (ev.type) {
+        case "gateway_meta":
+          gatewayMeta = ev.meta;
+          opts.callbacks.onGatewayMeta?.(ev.meta);
+          break;
         case "reasoning":
           reasoning += ev.delta;
           opts.callbacks.onReasoningDelta?.(ev.delta);
@@ -149,6 +159,8 @@ export async function runAgentTurn(opts: AgentTurnOpts): Promise<void> {
           break;
       }
     }
+
+    if (lastUsage) opts.callbacks.onUsageFinal?.(lastUsage, gatewayMeta);
 
     const assistantMsg: ChatMessage = {
       role: "assistant",
