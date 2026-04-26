@@ -72,12 +72,13 @@ function htmlPage(session: string, version: string): string {
     border: 1px solid #30363d;
     border-radius: 12px;
     padding: 32px;
-    max-width: 420px;
+    max-width: 460px;
     width: 100%;
     text-align: center;
   }
   h1 { margin: 0 0 8px; font-size: 20px; color: #f0f6fc; }
-  p.sub { margin: 0 0 24px; font-size: 14px; color: #8b949e; }
+  p.sub { margin: 0 0 16px; font-size: 14px; color: #8b949e; }
+  p.why { margin: 0 0 24px; font-size: 13px; color: #6e7681; font-style: italic; line-height: 1.5; }
   .btn {
     display: inline-flex;
     align-items: center;
@@ -85,7 +86,7 @@ function htmlPage(session: string, version: string): string {
     gap: 8px;
     border: none;
     border-radius: 8px;
-    padding: 12px 24px;
+    padding: 12px 28px;
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
@@ -98,7 +99,7 @@ function htmlPage(session: string, version: string): string {
   .btn-play { background: #1f6feb; color: #fff; }
   .btn-send { background: #8957e5; color: #fff; }
   .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
-  .timer { font-size: 28px; font-weight: 700; color: #f0f6fc; margin: 16px 0; font-variant-numeric: tabular-nums; }
+  .timer { font-size: 32px; font-weight: 700; color: #f0f6fc; margin: 12px 0; font-variant-numeric: tabular-nums; }
   .actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
   .hidden { display: none !important; }
   .field { margin-top: 16px; text-align: left; }
@@ -122,14 +123,16 @@ function htmlPage(session: string, version: string): string {
   .waveform { height: 40px; display: flex; align-items: center; justify-content: center; gap: 3px; margin: 12px 0; }
   .bar { width: 4px; background: #58a6ff; border-radius: 2px; animation: bounce 0.6s infinite ease-in-out alternate; }
   @keyframes bounce { from { height: 4px; } to { height: 32px; } }
+  .record-area { min-height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 </style>
 </head>
 <body>
 <div class="card">
   <h1>Hey, how do you like v${escapeHtml(version)}?</h1>
   <p class="sub">Record a voice note for Sina. Only he sees it.</p>
+  <p class="why">"I notice quite a number of people are using this tool that I built, but there's no way for me to see you or hear you. So I thought I would make this." — Sina</p>
 
-  <div id="step-record">
+  <div id="step-record" class="record-area">
     <button id="btn-record" class="btn btn-record">● Record</button>
     <div class="waveform hidden" id="waveform">
       <div class="bar" style="animation-delay:0s"></div>
@@ -175,6 +178,7 @@ function htmlPage(session: string, version: string): string {
   let startTime = 0;
   let timerInterval = null;
   let stream = null;
+  let isRecording = false;
 
   const $ = id => document.getElementById(id);
   const fmt = s => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
@@ -208,23 +212,37 @@ function htmlPage(session: string, version: string): string {
     audioBlob = null;
     chunks = [];
     mediaRecorder = null;
+    isRecording = false;
     $('step-record').classList.remove('hidden');
     $('step-review').classList.add('hidden');
     $('waveform').classList.add('hidden');
     $('timer').classList.add('hidden');
-    $('btn-record').classList.remove('hidden');
     $('btn-record').textContent = '● Record';
     $('btn-record').className = 'btn btn-record';
     setStatus('');
   }
 
+  function stopRecording() {
+    if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+    mediaRecorder.stop();
+    if (stream) { stream.getTracks().forEach(t => t.stop()); }
+    stopTimer();
+    isRecording = false;
+  }
+
   $('btn-record').addEventListener('click', async () => {
+    if (isRecording) {
+      stopRecording();
+      return;
+    }
+
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (e) {
       setStatus('Microphone access denied. Please allow it and try again.', false);
       return;
     }
+
     const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' :
                  MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
     mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
@@ -238,7 +256,9 @@ function htmlPage(session: string, version: string): string {
       $('step-review').classList.remove('hidden');
     };
     mediaRecorder.start(100);
-    $('btn-record').classList.add('hidden');
+    isRecording = true;
+    $('btn-record').textContent = '■ Stop';
+    $('btn-record').className = 'btn btn-stop';
     $('waveform').classList.remove('hidden');
     startTimer();
   });
