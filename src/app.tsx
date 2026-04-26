@@ -1375,6 +1375,14 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         ]);
         return true;
       }
+      if (c === "/community") {
+        openBrowser("https://discord.gg/aEuAUHNTK5");
+        setEvents((e) => [
+          ...e,
+          { kind: "info", key: mkKey(), text: "Opened Discord invite in your browser." },
+        ]);
+        return true;
+      }
       if (c === "/logout") {
         unlink(configPath()).catch(() => {});
         setEvents((e) => [
@@ -1408,6 +1416,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
               "  /reasoning              toggle show/hide model reasoning\n" +
               "  /clear                  clear current conversation\n" +
               "  /hello                  send a voice note to the creator\n" +
+              "  /community              join our Discord server\n" +
               "  /gateway                show gateway status\n" +
               "  /gateway ID             enable AI Gateway\n" +
               "  /gateway off            disable AI Gateway (direct Workers AI)\n" +

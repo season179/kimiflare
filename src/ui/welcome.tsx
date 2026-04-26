@@ -51,6 +51,11 @@ export function Welcome({ theme, accountId }: Props) {
           Tip: type /hello to send feedback to the creator
         </Text>
       </Box>
+      <Box>
+        <Text color={theme.info.color} dimColor={theme.info.dim}>
+          Join our community: https://discord.gg/aEuAUHNTK5 (type /community to open)
+        </Text>
+      </Box>
     </Box>
   );
 }
