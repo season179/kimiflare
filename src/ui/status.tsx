@@ -20,9 +20,10 @@ interface Props {
   hasUpdate?: boolean;
   latestVersion?: string | null;
   gatewayMeta?: GatewayMeta | null;
+  codeMode?: boolean;
 }
 
-export function StatusBar({ model, usage, thinking, turnStartedAt, theme, mode, effort, contextLimit, hasUpdate, latestVersion, gatewayMeta }: Props) {
+export function StatusBar({ model, usage, thinking, turnStartedAt, theme, mode, effort, contextLimit, hasUpdate, latestVersion, gatewayMeta, codeMode }: Props) {
   const [now, setNow] = useState(Date.now());
   const modeColor =
     mode === "plan" ? theme.modeBadge.plan : mode === "auto" ? theme.modeBadge.auto : theme.modeBadge.edit;
@@ -37,6 +38,7 @@ export function StatusBar({ model, usage, thinking, turnStartedAt, theme, mode, 
   const elapsed = turnStartedAt !== null ? formatElapsed(now - turnStartedAt) : null;
 
   const leftParts: string[] = [`${shortModel(model)}`, effort];
+  if (codeMode) leftParts.push("CODE");
 
   return (
     <Box flexDirection="column">
@@ -89,7 +91,7 @@ export function buildRightParts(
     `in ${usage.prompt_tokens}${cached ? ` (${cached} cached)` : ""}`,
     `out ${usage.completion_tokens}`,
     `ctx ${pct}%`,
-    `$${cost.total.toFixed(5)}`,
+    `${cost.total.toFixed(5)}`,
   ];
   const gatewayCache = formatGatewayCacheStatus(gatewayMeta);
   if (gatewayCache) parts.push(gatewayCache);

@@ -83,6 +83,7 @@ interface Cfg {
   memoryMaxAgeDays?: number;
   memoryMaxEntries?: number;
   memoryEmbeddingModel?: string;
+  codeMode?: boolean;
 }
 
 function gatewayFromConfig(cfg: Cfg): AiGatewayOptions | undefined {
@@ -189,6 +190,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
   const [draftInput, setDraftInput] = useState("");
 
   const [mode, setMode] = useState<Mode>("edit");
+  const [codeMode, setCodeMode] = useState<boolean>(initialCfg?.codeMode ?? false);
   const [effort, setEffort] = useState<ReasoningEffort>(
     initialCfg?.reasoningEffort ?? DEFAULT_REASONING_EFFORT,
   );
@@ -532,6 +534,10 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
       setShowThemePicker(true);
       return;
     }
+    if (key.ctrl && inputChar === "m") {
+      setCodeMode((c) => !c);
+      return;
+    }
   });
 
   const flushAssistantUpdates = useCallback(() => {
@@ -744,6 +750,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
             : undefined,
         sessionId: ensureSessionId(),
         memoryManager: memoryManagerRef.current,
+        codeMode,
         callbacks: {
           onAssistantStart: () => {
             const id = nextAssistantId++;
@@ -1459,6 +1466,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
           sessionId: ensureSessionId(),
           memoryManager: memoryManagerRef.current,
           keepLastImageTurns: cfg.imageHistoryTurns ?? 2,
+          codeMode,
           callbacks: {
             onAssistantStart: () => {
               const id = nextAssistantId++;
@@ -1742,6 +1750,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
             hasUpdate={hasUpdate}
             latestVersion={latestVersion}
             gatewayMeta={gatewayMeta}
+            codeMode={codeMode}
           />
           <Box marginTop={1}>
             <Text color={theme.accent}>› </Text>
