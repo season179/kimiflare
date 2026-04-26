@@ -54,80 +54,168 @@ function htmlPage(session: string, version: string): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>kimiflare feedback</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  * { box-sizing: border-box; }
+  :root {
+    --bg: #ffffff;
+    --bg-raised: #f9fafb;
+    --text: #111827;
+    --text-muted: #6b7280;
+    --text-faint: #9ca3af;
+    --accent: #f48120;
+    --accent-dim: rgba(244, 129, 32, 0.08);
+    --accent-hover: #e06b0a;
+    --border: #e5e7eb;
+    --border-hover: #d1d5db;
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background: #0d1117;
-    color: #c9d1d9;
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text);
     display: flex;
     align-items: center;
     justify-content: center;
     min-height: 100vh;
     padding: 24px;
+    -webkit-font-smoothing: antialiased;
   }
   .card {
-    background: #161b22;
-    border: 1px solid #30363d;
+    background: var(--bg);
+    border: 1px solid var(--border);
     border-radius: 12px;
-    padding: 32px;
-    max-width: 460px;
+    padding: 40px;
+    max-width: 480px;
     width: 100%;
     text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   }
-  h1 { margin: 0 0 8px; font-size: 20px; color: #f0f6fc; }
-  p.sub { margin: 0 0 16px; font-size: 14px; color: #8b949e; }
-  p.why { margin: 0 0 24px; font-size: 13px; color: #6e7681; font-style: italic; line-height: 1.5; }
+  .logo {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 24px;
+  }
+  h1 { margin: 0 0 8px; font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+  p.sub { margin: 0 0 16px; font-size: 15px; color: var(--text-muted); line-height: 1.5; }
+  p.why {
+    margin: 0 0 28px;
+    font-size: 14px;
+    color: var(--text-muted);
+    font-style: italic;
+    line-height: 1.6;
+    padding: 16px;
+    background: var(--bg-raised);
+    border-radius: 8px;
+    border-left: 3px solid var(--accent);
+    text-align: left;
+  }
   .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     border: none;
     border-radius: 8px;
-    padding: 12px 28px;
-    font-size: 15px;
-    font-weight: 600;
+    padding: 10px 24px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 500;
     cursor: pointer;
-    transition: opacity 0.15s;
+    transition: all 0.2s;
   }
   .btn:hover { opacity: 0.9; }
   .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-record { background: #238636; color: #fff; }
-  .btn-stop { background: #da3633; color: #fff; }
-  .btn-play { background: #1f6feb; color: #fff; }
-  .btn-send { background: #8957e5; color: #fff; }
-  .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
-  .timer { font-size: 32px; font-weight: 700; color: #f0f6fc; margin: 12px 0; font-variant-numeric: tabular-nums; }
+  .btn-record {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-record:hover { background: var(--accent-hover); }
+  .btn-stop {
+    background: #dc2626;
+    color: #fff;
+  }
+  .btn-stop:hover { background: #b91c1c; }
+  .btn-play {
+    background: var(--text);
+    color: #fff;
+  }
+  .btn-send {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-send:hover { background: var(--accent-hover); }
+  .btn-secondary {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover {
+    border-color: var(--border-hover);
+    color: var(--text);
+  }
+  .timer {
+    font-family: var(--font-mono);
+    font-size: 36px;
+    font-weight: 500;
+    color: var(--text);
+    margin: 8px 0;
+    font-variant-numeric: tabular-nums;
+  }
   .actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
   .hidden { display: none !important; }
-  .field { margin-top: 16px; text-align: left; }
-  .field label { display: block; font-size: 12px; color: #8b949e; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .field { margin-top: 20px; text-align: left; }
+  .field label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
   .field input, .field textarea {
     width: 100%;
-    background: #0d1117;
-    border: 1px solid #30363d;
-    border-radius: 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
     padding: 10px 12px;
-    color: #c9d1d9;
+    color: var(--text);
+    font-family: var(--font-sans);
     font-size: 14px;
     outline: none;
+    transition: border-color 0.2s;
   }
-  .field input:focus, .field textarea:focus { border-color: #58a6ff; }
+  .field input:focus, .field textarea:focus { border-color: var(--accent); }
   .field textarea { resize: vertical; min-height: 60px; }
-  .privacy { margin-top: 20px; font-size: 12px; color: #484f58; }
-  .status { margin-top: 16px; font-size: 14px; min-height: 20px; }
-  .status.ok { color: #3fb950; }
-  .status.err { color: #f85149; }
+  .field input::placeholder, .field textarea::placeholder { color: var(--text-faint); }
+  .privacy { margin-top: 24px; font-size: 12px; color: var(--text-faint); line-height: 1.5; }
+  .status { margin-top: 16px; font-size: 14px; min-height: 20px; font-weight: 500; }
+  .status.ok { color: #16a34a; }
+  .status.err { color: #dc2626; }
   .waveform { height: 40px; display: flex; align-items: center; justify-content: center; gap: 3px; margin: 12px 0; }
-  .bar { width: 4px; background: #58a6ff; border-radius: 2px; animation: bounce 0.6s infinite ease-in-out alternate; }
+  .bar { width: 4px; background: var(--accent); border-radius: 2px; animation: bounce 0.6s infinite ease-in-out alternate; }
   @keyframes bounce { from { height: 4px; } to { height: 32px; } }
   .record-area { min-height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 24px 0;
+    width: 100%;
+  }
 </style>
 </head>
 <body>
 <div class="card">
+  <div class="logo">kimiflare</div>
   <h1>Hey, how do you like v${escapeHtml(version)}?</h1>
   <p class="sub">Record a voice note for Sina. Only he sees it.</p>
   <p class="why">"I notice quite a number of people are using this tool that I built, but there's no way for me to see you or hear you. So I thought I would make this." — Sina</p>
@@ -152,6 +240,8 @@ function htmlPage(session: string, version: string): string {
       <button id="btn-send" class="btn btn-send">✉ Send</button>
     </div>
   </div>
+
+  <div class="divider"></div>
 
   <div class="field">
     <label for="text-note">Text note (optional)</label>
