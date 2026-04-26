@@ -37,6 +37,7 @@ import { checkForUpdate } from "./util/update-check.js";
 import type { UpdateCheckResult } from "./util/update-check.js";
 import { Onboarding } from "./ui/onboarding.js";
 import { Welcome } from "./ui/welcome.js";
+import { HelpMenu } from "./ui/help-menu.js";
 import {
   configPath,
   DEFAULT_MODEL,
@@ -232,6 +233,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
   const [theme, setTheme] = useState<Theme>(resolveTheme(initialCfg?.theme));
   const [resumeSessions, setResumeSessions] = useState<SessionSummary[] | null>(null);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [showHelpMenu, setShowHelpMenu] = useState(false);
   const [originalTheme, setOriginalTheme] = useState<Theme | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksStartedAt, setTasksStartedAt] = useState<number | null>(null);
@@ -1435,44 +1437,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         return true;
       }
       if (c === "/help") {
-        setEvents((e) => [
-          ...e,
-          {
-            kind: "info",
-            key: mkKey(),
-            text:
-              "commands:\n" +
-              "  /mode edit|plan|auto    switch mode (or shift+tab to cycle)\n" +
-              "  /plan /auto /edit       shortcuts for /mode\n" +
-              "  /thinking low|med|high  set reasoning effort (quality vs speed)\n" +
-              "  /theme                  interactive theme picker (or ctrl+t)\n" +
-              "  /theme NAME             set theme by name\n" +
-              "  /resume                 pick a past conversation\n" +
-              "  /compact                summarize old turns to free context\n" +
-              "  /init                   scan this repo and write a KIMI.md for future agents\n" +
-              "  /memory                 show memory stats\n" +
-              "  /memory on              enable memory\n" +
-              "  /memory off             disable memory\n" +
-              "  /memory search <query>  search stored memories\n" +
-              "  /memory clear           wipe memories for this repo\n" +
-              "  /mcp list               list connected MCP servers and tools\n" +
-              "  /mcp reload             reconnect all configured MCP servers\n" +
-              "  /reasoning              toggle show/hide model reasoning\n" +
-              "  /clear                  clear current conversation\n" +
-              "  /hello                  send a voice note to the creator\n" +
-              "  /community              join our Discord server\n" +
-              "  /gateway                show gateway status\n" +
-              "  /gateway ID             enable AI Gateway\n" +
-              "  /gateway off            disable AI Gateway (direct Workers AI)\n" +
-              "  /gateway cache-ttl N    set gateway cache TTL in seconds\n" +
-              "  /gateway skip-cache T|F set gateway skip-cache flag\n" +
-              "  /gateway collect-logs T|F  include payload in gateway logs\n" +
-              "  /gateway metadata K=V   add metadata key-value pair\n" +
-              "  /gateway metadata clear remove all metadata\n" +
-              "  /cost /model /update /logout /help /exit\n" +
-              "keys: ctrl-c interrupt/exit · ctrl-r toggle reasoning · ctrl-o verbose · ctrl+t theme · shift+tab cycle mode · ↑/↓ history",
-          },
-        ]);
+        setShowHelpMenu(true);
         return true;
       }
       return false;
@@ -1796,6 +1761,14 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
     return (
       <Box flexDirection="column">
         <ThemePicker themes={themeList()} current={theme} onPick={handleThemePick} onPreview={(t) => setTheme(t)} />
+      </Box>
+    );
+  }
+
+  if (showHelpMenu) {
+    return (
+      <Box flexDirection="column">
+        <HelpMenu theme={theme} onDone={() => setShowHelpMenu(false)} />
       </Box>
     );
   }
