@@ -100,11 +100,10 @@ function htmlPage(session: string, version: string): string {
     margin-bottom: 16px;
   }
   .logo-icon {
-    width: 22px;
-    height: 22px;
-    background: var(--accent);
-    border-radius: 4px;
+    width: 24px;
+    height: 24px;
     flex-shrink: 0;
+    border-radius: 4px;
   }
   .logo-text {
     font-family: var(--font-mono);
@@ -209,7 +208,7 @@ function htmlPage(session: string, version: string): string {
 <body>
 <div class="card">
   <div class="header">
-    <div class="logo-icon"></div>
+    <img class="logo-icon" src="https://sinameraji.github.io/kimiflare/logo.png" alt="">
     <div class="logo-text">kimiflare</div>
   </div>
   <h1>Hey, how do you like v${escapeHtml(version)}?</h1>
@@ -235,6 +234,12 @@ function htmlPage(session: string, version: string): string {
         <button id="btn-rerecord" class="btn btn-secondary">↻ Re-record</button>
         <button id="btn-send" class="btn btn-send">✉ Send</button>
       </div>
+    </div>
+
+    <div id="step-sent" class="hidden" style="text-align:center;">
+      <div style="font-size:42px;margin-bottom:8px;">✅</div>
+      <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:4px;">Sent!</div>
+      <div style="font-size:14px;color:var(--text-muted);">Thanks for the feedback. You can close this tab.</div>
     </div>
   </div>
 
@@ -302,6 +307,7 @@ function htmlPage(session: string, version: string): string {
     $('record-box').classList.remove('active');
     $('step-record').classList.remove('hidden');
     $('step-review').classList.add('hidden');
+    $('step-sent').classList.add('hidden');
     $('waveform').classList.add('hidden');
     $('timer').classList.add('hidden');
     $('btn-record').textContent = '● Record';
@@ -384,8 +390,8 @@ function htmlPage(session: string, version: string): string {
         const body = await res.text().catch(() => '');
         throw new Error(body || 'Upload failed');
       }
-      setStatus('Sent! Thanks for the feedback. You can close this tab.', true);
       $('step-review').classList.add('hidden');
+      $('step-sent').classList.remove('hidden');
       $('text-note').disabled = true;
       $('contact').disabled = true;
     } catch (e) {
