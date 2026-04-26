@@ -16,6 +16,11 @@
   Moonshot's 1T-parameter open-source model, running directly on your Cloudflare account.
 </p>
 
+> 💸 **Heads up — this runs on your Cloudflare account.**
+> We recommend setting a [budget cap](https://developers.cloudflare.com/workers-ai/platform/pricing/) on Workers AI and checking your [Cloudflare billing](https://dash.cloudflare.com/) regularly while using KimiFlare.
+>
+> 🚀 **Stay up to date.** Newer versions are significantly more token-efficient and cheaper to run. Run `/update` inside KimiFlare or `npm update -g kimiflare` to get the latest release.
+
 <p align="center">
   <img src="docs/screenshot.png" alt="kimiflare TUI" width="900">
 </p>
