@@ -160,7 +160,7 @@ function htmlPage(session: string, version: string): string {
     <input id="contact" type="text" placeholder="so Sina can reply">
   </div>
 
-  <p class="privacy">No marketing, ever. This goes straight to Sina.</p>
+  <p class="privacy">There's no email list or automation right now — Sina will personally contact you. If there's ever a plan to start a mailing list, he'll ask you first.</p>
   <div class="status" id="status"></div>
 </div>
 
