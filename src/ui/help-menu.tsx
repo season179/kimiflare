@@ -1,11 +1,14 @@
 import React, { useState } from "react";
-import { Box, Text } from "ink";
+import { Box, Text, useInput } from "ink";
 import SelectInput from "ink-select-input";
 import type { Theme } from "./theme.js";
 
 interface Props {
   theme: Theme;
+  themes: { name: string; label: string }[];
+  currentThemeName: string;
   onDone: () => void;
+  onCommand: (command: string) => void;
 }
 
 type Page =
@@ -20,15 +23,16 @@ type Page =
   | "info"
   | "config";
 
-interface CommandEntry {
+interface CommandItem {
   command: string;
   description: string;
+  selectable?: boolean;
 }
 
 interface Category {
   key: Page;
   label: string;
-  commands: CommandEntry[];
+  commands: CommandItem[];
 }
 
 const CATEGORIES: Category[] = [
@@ -36,26 +40,24 @@ const CATEGORIES: Category[] = [
     key: "mode",
     label: "Mode",
     commands: [
-      { command: "/mode edit|plan|auto", description: "switch mode (or shift+tab to cycle)" },
-      { command: "/plan", description: "shortcut for /mode plan" },
-      { command: "/auto", description: "shortcut for /mode auto" },
-      { command: "/edit", description: "shortcut for /mode edit" },
+      { command: "/mode edit", description: "switch to edit mode" },
+      { command: "/mode plan", description: "switch to plan mode" },
+      { command: "/mode auto", description: "switch to auto mode" },
     ],
   },
   {
     key: "thinking",
     label: "Thinking",
     commands: [
-      { command: "/thinking low|medium|high", description: "set reasoning effort (quality vs speed)" },
+      { command: "/thinking low", description: "fast, lower quality" },
+      { command: "/thinking medium", description: "balanced" },
+      { command: "/thinking high", description: "slow, higher quality" },
     ],
   },
   {
     key: "theme",
     label: "Theme",
-    commands: [
-      { command: "/theme", description: "interactive theme picker (or ctrl+t)" },
-      { command: "/theme NAME", description: "set theme by name" },
-    ],
+    commands: [],
   },
   {
     key: "session",
@@ -73,8 +75,8 @@ const CATEGORIES: Category[] = [
       { command: "/memory", description: "show memory stats" },
       { command: "/memory on", description: "enable memory" },
       { command: "/memory off", description: "disable memory" },
-      { command: "/memory search <query>", description: "search stored memories" },
       { command: "/memory clear", description: "wipe memories for this repo" },
+      { command: "/memory search <query>", description: "search stored memories", selectable: false },
     ],
   },
   {
@@ -90,13 +92,15 @@ const CATEGORIES: Category[] = [
     label: "Gateway",
     commands: [
       { command: "/gateway", description: "show gateway status" },
-      { command: "/gateway ID", description: "enable AI Gateway" },
       { command: "/gateway off", description: "disable AI Gateway (direct Workers AI)" },
-      { command: "/gateway cache-ttl N", description: "set gateway cache TTL in seconds" },
-      { command: "/gateway skip-cache T|F", description: "set gateway skip-cache flag" },
-      { command: "/gateway collect-logs T|F", description: "include payload in gateway logs" },
-      { command: "/gateway metadata K=V", description: "add metadata key-value pair" },
+      { command: "/gateway skip-cache true", description: "enable skip-cache" },
+      { command: "/gateway skip-cache false", description: "disable skip-cache" },
+      { command: "/gateway collect-logs true", description: "enable log collection" },
+      { command: "/gateway collect-logs false", description: "disable log collection" },
       { command: "/gateway metadata clear", description: "remove all metadata" },
+      { command: "/gateway <id>", description: "enable AI Gateway", selectable: false },
+      { command: "/gateway cache-ttl <seconds>", description: "set cache TTL", selectable: false },
+      { command: "/gateway metadata <key>=<value>", description: "add metadata", selectable: false },
     ],
   },
   {
@@ -114,24 +118,39 @@ const CATEGORIES: Category[] = [
     key: "config",
     label: "Config",
     commands: [
-      { command: "/init", description: "scan this repo and write a KIMI.md for future agents" },
+      { command: "/init", description: "scan this repo and write a KIMI.md" },
       { command: "/logout", description: "clear credentials" },
     ],
   },
 ];
 
-const SINGLE_COMMANDS: CommandEntry[] = [
+const SINGLE_COMMANDS: CommandItem[] = [
   { command: "/reasoning", description: "toggle show/hide model reasoning" },
   { command: "/help", description: "show this menu" },
   { command: "/exit", description: "exit kimiflare" },
 ];
 
-export function HelpMenu({ theme, onDone }: Props) {
+export function HelpMenu({ theme, themes, currentThemeName, onDone, onCommand }: Props) {
   const [page, setPage] = useState<Page>("main");
+
+  useInput((_input, key) => {
+    if (key.escape) {
+      if (page !== "main") {
+        setPage("main");
+      } else {
+        onDone();
+      }
+    }
+  });
+
+  const handleSelect = (command: string) => {
+    onCommand(command);
+    onDone();
+  };
 
   if (page === "main") {
     const items = CATEGORIES.map((cat) => ({
-      label: `${cat.label}`,
+      label: cat.label,
       value: cat.key,
       key: cat.key,
     }));
@@ -143,7 +162,7 @@ export function HelpMenu({ theme, onDone }: Props) {
           Help
         </Text>
         <Text color={theme.info.color} dimColor={false}>
-          Arrow keys to navigate, Enter to select.
+          Arrow keys to navigate, Enter to select, Esc to close.
         </Text>
         <Box marginTop={1}>
           <SelectInput
@@ -173,8 +192,43 @@ export function HelpMenu({ theme, onDone }: Props) {
     );
   }
 
+  if (page === "theme") {
+    const items = themes.map((t) => ({
+      label: t.name === currentThemeName ? `${t.label} · current` : t.label,
+      value: t.name,
+      key: t.name,
+    }));
+    items.push({ label: "← Back", value: "__back__", key: "__back__" });
+
+    return (
+      <Box flexDirection="column" borderStyle="round" borderColor={theme.accent} paddingX={1}>
+        <Text color={theme.accent} bold>
+          Theme
+        </Text>
+        <Text color={theme.info.color} dimColor={false}>
+          Arrow keys to navigate, Enter to apply, Esc to go back.
+        </Text>
+        <Box marginTop={1}>
+          <SelectInput
+            items={items}
+            onSelect={(item) => {
+              if (item.value === "__back__") {
+                setPage("main");
+              } else {
+                handleSelect(`/theme ${item.value}`);
+              }
+            }}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
   const category = CATEGORIES.find((c) => c.key === page)!;
-  const items = category.commands.map((cmd) => ({
+  const selectable = category.commands.filter((cmd) => cmd.selectable !== false);
+  const staticCmds = category.commands.filter((cmd) => cmd.selectable === false);
+
+  const items = selectable.map((cmd) => ({
     label: `${cmd.command.padEnd(28)} ${cmd.description}`,
     value: cmd.command,
     key: cmd.command,
@@ -187,7 +241,7 @@ export function HelpMenu({ theme, onDone }: Props) {
         {category.label}
       </Text>
       <Text color={theme.info.color} dimColor={false}>
-        Arrow keys to navigate, Enter to go back.
+        Arrow keys to navigate, Enter to execute, Esc to go back.
       </Text>
       <Box marginTop={1}>
         <SelectInput
@@ -195,10 +249,21 @@ export function HelpMenu({ theme, onDone }: Props) {
           onSelect={(item) => {
             if (item.value === "__back__") {
               setPage("main");
+            } else {
+              handleSelect(item.value as string);
             }
           }}
         />
       </Box>
+      {staticCmds.length > 0 && (
+        <Box marginTop={1} flexDirection="column">
+          {staticCmds.map((cmd) => (
+            <Text key={cmd.command} color={theme.info.color} dimColor>
+              {`  ${cmd.command.padEnd(28)} ${cmd.description}`}
+            </Text>
+          ))}
+        </Box>
+      )}
     </Box>
   );
 }

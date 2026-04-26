@@ -1445,6 +1445,17 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
     [cfg, exit, usage, effort, theme, mode, openResumePicker, runCompact, runInit, initMcp, setCfg],
   );
 
+  const handleHelpCommand = useCallback(
+    (command: string) => {
+      setShowHelpMenu(false);
+      const executed = handleSlash(command);
+      if (!executed) {
+        setEvents((e) => [...e, { kind: "error", key: mkKey(), text: `unknown command: ${command}` }]);
+      }
+    },
+    [handleSlash],
+  );
+
   const processMessage = useCallback(
     async (text: string, displayText?: string) => {
       if (!cfg) return;
@@ -1768,7 +1779,13 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
   if (showHelpMenu) {
     return (
       <Box flexDirection="column">
-        <HelpMenu theme={theme} onDone={() => setShowHelpMenu(false)} />
+        <HelpMenu
+          theme={theme}
+          themes={themeList().map((t) => ({ name: t.name, label: t.label }))}
+          currentThemeName={theme.name}
+          onDone={() => setShowHelpMenu(false)}
+          onCommand={handleHelpCommand}
+        />
       </Box>
     );
   }
