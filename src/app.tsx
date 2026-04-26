@@ -989,16 +989,19 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         return true;
       }
       if (c === "/cost") {
-        if (!sessionIdRef.current) {
-          setEvents((e) => [...e, { kind: "info", key: mkKey(), text: "no usage recorded yet" }]);
-          return true;
-        }
-        void getCostReport(sessionIdRef.current).then((report) => {
-          setEvents((e) => [
-            ...e,
-            { kind: "info", key: mkKey(), text: formatCostReport(report) },
-          ]);
-        });
+        void getCostReport(sessionIdRef.current ?? undefined)
+          .then((report) => {
+            setEvents((e) => [
+              ...e,
+              { kind: "info", key: mkKey(), text: formatCostReport(report) },
+            ]);
+          })
+          .catch((err) => {
+            setEvents((e) => [
+              ...e,
+              { kind: "error", key: mkKey(), text: `cost report failed: ${(err as Error).message}` },
+            ]);
+          });
         return true;
       }
       if (c === "/model") {
@@ -1242,19 +1245,6 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         } else {
           setEvents((e) => [...e, { kind: "info", key: mkKey(), text: "memory manager not initialized" }]);
         }
-        return true;
-      }
-      if (c === "/cost") {
-        if (!sessionIdRef.current) {
-          setEvents((e) => [...e, { kind: "info", key: mkKey(), text: "no usage recorded yet" }]);
-          return true;
-        }
-        void getCostReport(sessionIdRef.current).then((report) => {
-          setEvents((e) => [
-            ...e,
-            { kind: "info", key: mkKey(), text: formatCostReport(report) },
-          ]);
-        });
         return true;
       }
       if (c === "/resume") {
@@ -1529,6 +1519,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
             onUsageFinal: (u, meta) => {
               const sid = ensureSessionId();
               void recordUsage(sid, u, gatewayUsageLookupFromConfig(cfg, meta ?? gatewayMetaRef.current));
+              void getCostReport(sid).then((report) => setSessionUsage(report.session));
             },
             onGatewayMeta: updateGatewayMeta,
             onTasks: (nextTasks) => {
