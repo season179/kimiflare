@@ -59,7 +59,7 @@ function htmlPage(session: string, version: string): string {
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #fafaf9;
+    --bg: #f5f5f4;
     --card: #ffffff;
     --text: #1c1917;
     --text-muted: #57534e;
@@ -68,7 +68,6 @@ function htmlPage(session: string, version: string): string {
     --accent-hover: #e06b0a;
     --accent-soft: #fff7ed;
     --border: #d6d3d1;
-    --border-focus: #f48120;
     --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
     --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
   }
@@ -81,70 +80,52 @@ function htmlPage(session: string, version: string): string {
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    padding: 32px 20px;
+    padding: 16px;
     -webkit-font-smoothing: antialiased;
   }
   .card {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 48px;
-    max-width: 460px;
+    border-radius: 14px;
+    padding: 28px 32px;
+    max-width: 520px;
     width: 100%;
     text-align: left;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
   }
-  .logo {
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .logo-icon {
+    width: 22px;
+    height: 22px;
+    background: var(--accent);
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .logo-text {
     font-family: var(--font-mono);
     font-weight: 600;
     font-size: 0.8rem;
     color: var(--accent);
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    margin-bottom: 32px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+    letter-spacing: 0.1em;
   }
-  .logo::before {
-    content: '';
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    background: var(--accent);
-    border-radius: 2px;
-  }
-  h1 { margin: 0 0 10px; font-size: 24px; font-weight: 700; color: var(--text); letter-spacing: -0.025em; line-height: 1.2; }
-  p.sub { margin: 0 0 24px; font-size: 16px; color: var(--text-muted); line-height: 1.55; }
-  p.why {
-    margin: 0 0 32px;
-    font-size: 15px;
-    color: var(--text-muted);
-    line-height: 1.65;
-    padding: 20px 24px;
-    background: var(--accent-soft);
-    border-radius: 12px;
-    border: 1px solid rgba(244, 129, 32, 0.15);
-    text-align: left;
-    position: relative;
-  }
-  p.why::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 20px; bottom: 20px;
-    width: 3px;
-    background: var(--accent);
-    border-radius: 0 2px 2px 0;
-  }
-  .record-wrap {
+  h1 { margin: 0 0 4px; font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+  p.sub { margin: 0 0 16px; font-size: 14px; color: var(--text-muted); }
+  .record-box {
     background: var(--bg);
-    border: 1px dashed var(--border);
-    border-radius: 12px;
-    padding: 32px;
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 20px;
     text-align: center;
-    margin-bottom: 4px;
+    margin-bottom: 16px;
+    transition: all 0.2s;
   }
-  .record-wrap.active {
+  .record-box.active {
     border-style: solid;
     border-color: var(--accent);
     background: var(--accent-soft);
@@ -153,120 +134,96 @@ function htmlPage(session: string, version: string): string {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 5px;
     border: none;
-    border-radius: 10px;
-    padding: 12px 28px;
+    border-radius: 8px;
+    padding: 10px 22px;
     font-family: var(--font-sans);
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s;
   }
-  .btn:hover { transform: translateY(-1px); }
-  .btn:active { transform: translateY(0); }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-  .btn-record {
-    background: var(--accent);
-    color: #fff;
-    box-shadow: 0 2px 8px rgba(244, 129, 32, 0.25);
-  }
-  .btn-record:hover { background: var(--accent-hover); box-shadow: 0 4px 12px rgba(244, 129, 32, 0.3); }
-  .btn-stop {
-    background: #dc2626;
-    color: #fff;
-    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
-  }
+  .btn:hover { opacity: 0.9; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-record { background: var(--accent); color: #fff; }
+  .btn-record:hover { background: var(--accent-hover); }
+  .btn-stop { background: #dc2626; color: #fff; }
   .btn-stop:hover { background: #b91c1c; }
-  .btn-play {
-    background: var(--text);
-    color: #fff;
-  }
-  .btn-send {
-    background: var(--accent);
-    color: #fff;
-    box-shadow: 0 2px 8px rgba(244, 129, 32, 0.25);
-  }
+  .btn-play { background: var(--text); color: #fff; }
+  .btn-send { background: var(--accent); color: #fff; }
   .btn-send:hover { background: var(--accent-hover); }
-  .btn-secondary {
-    background: var(--card);
-    color: var(--text-muted);
-    border: 1px solid var(--border);
-    font-weight: 500;
-  }
-  .btn-secondary:hover {
-    border-color: var(--text-faint);
-    color: var(--text);
-  }
+  .btn-secondary { background: var(--card); color: var(--text-muted); border: 1px solid var(--border); font-weight: 500; }
+  .btn-secondary:hover { border-color: var(--text-faint); color: var(--text); }
   .timer {
     font-family: var(--font-mono);
-    font-size: 40px;
+    font-size: 32px;
     font-weight: 500;
     color: var(--text);
-    margin: 4px 0 12px;
+    margin: 2px 0 8px;
     font-variant-numeric: tabular-nums;
   }
-  .actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
   .hidden { display: none !important; }
-  .field { margin-top: 20px; text-align: left; }
+  .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .field { text-align: left; }
   .field label {
     display: block;
-    font-family: var(--font-sans);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
-    color: var(--text);
-    margin-bottom: 6px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
   }
   .field input, .field textarea {
     width: 100%;
     background: var(--card);
     border: 1.5px solid var(--border);
-    border-radius: 10px;
-    padding: 12px 14px;
+    border-radius: 8px;
+    padding: 9px 12px;
     color: var(--text);
     font-family: var(--font-sans);
-    font-size: 15px;
+    font-size: 14px;
     outline: none;
-    transition: all 0.2s;
+    transition: all 0.15s;
   }
-  .field input:focus, .field textarea:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(244, 129, 32, 0.1);
-  }
-  .field textarea { resize: vertical; min-height: 72px; }
+  .field input:focus, .field textarea:focus { border-color: var(--accent); }
+  .field textarea { resize: none; min-height: 40px; height: 40px; }
   .field input::placeholder, .field textarea::placeholder { color: var(--text-faint); }
-  .privacy { margin-top: 28px; font-size: 13px; color: var(--text-faint); line-height: 1.6; }
-  .status { margin-top: 16px; font-size: 14px; min-height: 20px; font-weight: 500; text-align: center; }
+  .privacy { font-size: 12px; color: var(--text-faint); line-height: 1.5; }
+  .status { margin-top: 10px; font-size: 13px; min-height: 18px; font-weight: 500; }
   .status.ok { color: #16a34a; }
   .status.err { color: #dc2626; }
-  .waveform { height: 40px; display: flex; align-items: center; justify-content: center; gap: 3px; margin: 12px 0; }
-  .bar { width: 4px; background: var(--accent); border-radius: 2px; animation: bounce 0.6s infinite ease-in-out alternate; }
-  @keyframes bounce { from { height: 4px; } to { height: 32px; } }
-  .record-area { min-height: 100px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .divider {
-    height: 1px;
-    background: var(--border);
-    margin: 28px 0;
-    width: 100%;
+  .waveform { height: 32px; display: flex; align-items: center; justify-content: center; gap: 3px; margin: 8px 0; }
+  .bar { width: 3px; background: var(--accent); border-radius: 2px; animation: bounce 0.5s infinite ease-in-out alternate; }
+  @keyframes bounce { from { height: 3px; } to { height: 24px; } }
+  .record-area { min-height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  @media (max-width: 480px) {
+    .card { padding: 20px 18px; border-radius: 12px; }
+    h1 { font-size: 18px; }
+    .fields { grid-template-columns: 1fr; gap: 10px; }
+    .record-box { padding: 16px; }
+    .timer { font-size: 28px; }
   }
 </style>
 </head>
 <body>
 <div class="card">
-  <div class="logo">kimiflare</div>
+  <div class="header">
+    <div class="logo-icon"></div>
+    <div class="logo-text">kimiflare</div>
+  </div>
   <h1>Hey, how do you like v${escapeHtml(version)}?</h1>
-  <p class="sub">Record a voice note for me. Only I see it.</p>
-  <p class="why">I notice quite a number of people are using this tool that I built, but there's no way for me to see you or hear you. So I thought I would make this.</p>
+  <p class="sub">Send me a voice note. Only I see it.</p>
 
-  <div class="record-wrap" id="record-wrap">
+  <div class="record-box" id="record-box">
     <div id="step-record" class="record-area">
       <button id="btn-record" class="btn btn-record">● Record</button>
       <div class="waveform hidden" id="waveform">
         <div class="bar" style="animation-delay:0s"></div>
-        <div class="bar" style="animation-delay:0.1s"></div>
-        <div class="bar" style="animation-delay:0.2s"></div>
-        <div class="bar" style="animation-delay:0.3s"></div>
-        <div class="bar" style="animation-delay:0.4s"></div>
+        <div class="bar" style="animation-delay:0.08s"></div>
+        <div class="bar" style="animation-delay:0.16s"></div>
+        <div class="bar" style="animation-delay:0.24s"></div>
+        <div class="bar" style="animation-delay:0.32s"></div>
       </div>
       <div class="timer hidden" id="timer">00:00</div>
     </div>
@@ -281,19 +238,18 @@ function htmlPage(session: string, version: string): string {
     </div>
   </div>
 
-  <div class="divider"></div>
-
-  <div class="field">
-    <label for="text-note">Text note (optional)</label>
-    <textarea id="text-note" placeholder="Or type your feedback here..."></textarea>
+  <div class="fields">
+    <div class="field">
+      <label for="text-note">Note (optional)</label>
+      <textarea id="text-note" placeholder="Type instead..."></textarea>
+    </div>
+    <div class="field">
+      <label for="contact">Contact (optional)</label>
+      <input id="contact" type="text" placeholder="Email or X">
+    </div>
   </div>
 
-  <div class="field">
-    <label for="contact">Email or X/Twitter (optional)</label>
-    <input id="contact" type="text" placeholder="so I can reply">
-  </div>
-
-  <p class="privacy">There's no email list or automation right now — I'll personally contact you. If there's ever a plan to start a mailing list, I'll ask you first.</p>
+  <p class="privacy">No automation — I'll personally reply. No mailing list unless you opt in.</p>
   <div class="status" id="status"></div>
 </div>
 
@@ -343,7 +299,7 @@ function htmlPage(session: string, version: string): string {
     chunks = [];
     mediaRecorder = null;
     isRecording = false;
-    $('record-wrap').classList.remove('active');
+    $('record-box').classList.remove('active');
     $('step-record').classList.remove('hidden');
     $('step-review').classList.add('hidden');
     $('waveform').classList.add('hidden');
@@ -388,7 +344,7 @@ function htmlPage(session: string, version: string): string {
     };
     mediaRecorder.start(100);
     isRecording = true;
-    $('record-wrap').classList.add('active');
+    $('record-box').classList.add('active');
     $('btn-record').textContent = '■ Stop';
     $('btn-record').className = 'btn btn-stop';
     $('waveform').classList.remove('hidden');
