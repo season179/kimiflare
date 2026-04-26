@@ -57,6 +57,9 @@ import { unlink } from "node:fs/promises";
 import { encodeImageFile, isImagePath, type EncodedImage } from "./util/image.js";
 import { recordUsage, getCostReport, formatCostReport } from "./usage-tracker.js";
 import type { GatewayUsageLookup } from "./usage-tracker.js";
+import { loadCustomCommands } from "./commands/loader.js";
+import { renderCommand } from "./commands/renderer.js";
+import type { CustomCommand } from "./commands/types.js";
 
 interface Cfg {
   accountId: string;
@@ -151,6 +154,12 @@ function findImagePaths(text: string): string[] {
   return [...new Set(paths)];
 }
 
+const BUILTIN_COMMAND_NAMES = new Set([
+  "exit", "quit", "clear", "reasoning", "cost", "model", "thinking", "effort",
+  "theme", "mode", "plan", "auto", "edit", "resume", "compact", "init",
+  "update", "mcp", "logout", "help",
+]);
+
 const EFFORT_DESCRIPTIONS: Record<ReasoningEffort, string> = {
   low: "low — fastest; lightest reasoning. Best for simple Q&A, small edits, quick coordination.",
   medium: "medium — balanced (default). Solid quality on most edits, fast on trivial prompts.",
@@ -219,6 +228,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
   const mcpManagerRef = useRef(new McpManager());
   const mcpToolsRef = useRef<ToolSpec[]>([]);
   const mcpInitRef = useRef(false);
+  const customCommandsRef = useRef<CustomCommand[]>([]);
 
   useEffect(() => {
     if (!cfg) return;
@@ -233,7 +243,20 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         }
       }),
     );
-  }, [cfg]);
+    void loadCustomCommands(process.cwd()).then(({ commands, warnings }) => {
+      customCommandsRef.current = commands;
+      for (const w of warnings) {
+        setEvents((e) => [...e, { kind: "info", key: mkKey(), text: `commands: ${w}` }]);
+      }
+      const shadowed = commands.filter((c) => BUILTIN_COMMAND_NAMES.has(c.name.toLowerCase()));
+      for (const c of shadowed) {
+        setEvents((e) => [
+          ...e,
+          { kind: "info", key: mkKey(), text: `commands: /${c.name} (${c.filepath}) shadowed by built-in — will not run` },
+        ]);
+      }
+    });
+  }, [cfg, setEvents]);
 
   useEffect(() => {
     if (!cfg || updateCheckedRef.current) return;
@@ -1098,28 +1121,37 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         return true;
       }
       if (c === "/help") {
+        const lines = [
+          "commands:",
+          "  /mode edit|plan|auto    switch mode (or shift+tab to cycle)",
+          "  /plan /auto /edit       shortcuts for /mode",
+          "  /thinking low|med|high  set reasoning effort (quality vs speed)",
+          "  /theme                  interactive theme picker (or ctrl+t)",
+          "  /theme NAME             set theme by name",
+          "  /resume                 pick a past conversation",
+          "  /compact                summarize old turns to free context",
+          "  /init                   scan this repo and write a KIMI.md for future agents",
+          "  /mcp list               list connected MCP servers and tools",
+          "  /mcp reload             reconnect all configured MCP servers",
+          "  /reasoning              toggle show/hide model reasoning",
+          "  /clear                  clear current conversation",
+          "  /cost /model /update /logout /help /exit",
+        ];
+        const customs = customCommandsRef.current.filter((c) => !BUILTIN_COMMAND_NAMES.has(c.name.toLowerCase()));
+        if (customs.length > 0) {
+          const nameWidth = Math.max(...customs.map((c) => c.name.length + 1), 22);
+          lines.push("", "custom commands:");
+          for (const c of customs) {
+            const display = `/${c.name}`.padEnd(nameWidth, " ");
+            lines.push(`  ${display}  ${c.description ?? ""}`.trimEnd());
+          }
+        }
+        lines.push(
+          "keys: ctrl-c interrupt/exit · ctrl-r toggle reasoning · ctrl-o verbose · ctrl+t theme · shift+tab cycle mode · ↑/↓ history",
+        );
         setEvents((e) => [
           ...e,
-          {
-            kind: "info",
-            key: mkKey(),
-            text:
-              "commands:\n" +
-              "  /mode edit|plan|auto    switch mode (or shift+tab to cycle)\n" +
-              "  /plan /auto /edit       shortcuts for /mode\n" +
-              "  /thinking low|med|high  set reasoning effort (quality vs speed)\n" +
-              "  /theme                  interactive theme picker (or ctrl+t)\n" +
-              "  /theme NAME             set theme by name\n" +
-              "  /resume                 pick a past conversation\n" +
-              "  /compact                summarize old turns to free context\n" +
-              "  /init                   scan this repo and write a KIMI.md for future agents\n" +
-              "  /mcp list               list connected MCP servers and tools\n" +
-              "  /mcp reload             reconnect all configured MCP servers\n" +
-              "  /reasoning              toggle show/hide model reasoning\n" +
-              "  /clear                  clear current conversation\n" +
-              "  /cost /model /update /logout /help /exit\n" +
-              "keys: ctrl-c interrupt/exit · ctrl-r toggle reasoning · ctrl-o verbose · ctrl+t theme · shift+tab cycle mode · ↑/↓ history",
-          },
+          { kind: "info", key: mkKey(), text: lines.join("\n") },
         ]);
         return true;
       }
@@ -1131,12 +1163,41 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
   const processMessage = useCallback(
     async (text: string, displayText?: string) => {
       if (!cfg) return;
-      const trimmed = text.trim();
+      let trimmed = text.trim();
       if (!trimmed) return;
 
-      if (trimmed.startsWith("/") && handleSlash(trimmed)) return;
+      let overrideModel: string | undefined;
+      let overrideEffort: ReasoningEffort | undefined;
+      let display = displayText?.trim() || trimmed;
 
-      const display = displayText?.trim() || trimmed;
+      if (trimmed.startsWith("/")) {
+        if (handleSlash(trimmed)) return;
+        const head = trimmed.split(/\s+/)[0]!.slice(1);
+        const custom = customCommandsRef.current.find((c) => c.name === head);
+        if (custom) {
+          const info = (text: string) =>
+            setEvents((e) => [...e, { kind: "info", key: mkKey(), text }]);
+          const { prompt: rendered, warnings } = await renderCommand(custom, trimmed, {
+            cwd: process.cwd(),
+          });
+          for (const w of warnings) info(`${custom.name}: ${w}`);
+          if (!rendered.trim()) return;
+          const parts: string[] = [];
+          if (custom.model) {
+            overrideModel = custom.model;
+            parts.push(`model=${custom.model}`);
+          }
+          if (custom.effort) {
+            overrideEffort = custom.effort;
+            parts.push(`effort=${custom.effort}`);
+          }
+          if (parts.length > 0) info(`command '${custom.name}' → ${parts.join(", ")} (this turn)`);
+          if (custom.mode) info(`note: mode override (${custom.mode}) is not yet wired; current mode applies`);
+          display = trimmed;
+          trimmed = rendered;
+        }
+      }
+
       const imagePaths = findImagePaths(trimmed).slice(0, MAX_IMAGES_PER_MESSAGE);
       let images: string[] = [];
       let content: string | ContentPart[] = sanitizeString(trimmed);
@@ -1195,14 +1256,14 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         await runAgentTurn({
           accountId: cfg.accountId,
           apiToken: cfg.apiToken,
-          model: cfg.model,
+          model: overrideModel ?? cfg.model,
           gateway: gatewayFromConfig(cfg),
           messages: messagesRef.current,
           tools: [...ALL_TOOLS, ...mcpToolsRef.current],
           executor: executorRef.current,
           cwd: process.cwd(),
           signal: controller.signal,
-          reasoningEffort: effortRef.current,
+          reasoningEffort: overrideEffort ?? effortRef.current,
           coauthor:
             cfg.coauthor !== false
               ? { name: cfg.coauthorName || "kimiflare", email: cfg.coauthorEmail || "kimiflare@proton.me" }
