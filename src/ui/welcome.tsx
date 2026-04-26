@@ -4,6 +4,7 @@ import type { Theme } from "./theme.js";
 
 interface Props {
   theme: Theme;
+  accountId?: string;
 }
 
 const SUGGESTIONS = [
@@ -12,7 +13,7 @@ const SUGGESTIONS = [
   "Refactor a file",
 ];
 
-export function Welcome({ theme }: Props) {
+export function Welcome({ theme, accountId }: Props) {
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box marginBottom={1}>
@@ -23,6 +24,13 @@ export function Welcome({ theme }: Props) {
           {"  "}Ready when you are.
         </Text>
       </Box>
+      {accountId && (
+        <Box marginBottom={1}>
+          <Text color={theme.info.color} dimColor={theme.info.dim}>
+            {"  "}Check your Cloudflare billing: https://dash.cloudflare.com/{accountId}/billing
+          </Text>
+        </Box>
+      )}
       <Box flexDirection="column">
         {SUGGESTIONS.map((s, i) => (
           <Box key={i}>
