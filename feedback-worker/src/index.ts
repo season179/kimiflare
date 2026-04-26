@@ -249,7 +249,7 @@ function htmlPage(session: string, version: string): string {
     </div>
   </div>
 
-  <p class="privacy">No automation — I'll personally reply. No mailing list unless you opt in.</p>
+  <p class="privacy">I will personally reply.</p>
   <div class="status" id="status"></div>
 </div>
 
