@@ -59,16 +59,16 @@ function htmlPage(session: string, version: string): string {
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #ffffff;
-    --bg-raised: #f9fafb;
-    --text: #111827;
-    --text-muted: #6b7280;
-    --text-faint: #9ca3af;
+    --bg: #fafaf9;
+    --card: #ffffff;
+    --text: #1c1917;
+    --text-muted: #57534e;
+    --text-faint: #a8a29e;
     --accent: #f48120;
-    --accent-dim: rgba(244, 129, 32, 0.08);
     --accent-hover: #e06b0a;
-    --border: #e5e7eb;
-    --border-hover: #d1d5db;
+    --accent-soft: #fff7ed;
+    --border: #d6d3d1;
+    --border-focus: #f48120;
     --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
     --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
   }
@@ -81,41 +81,73 @@ function htmlPage(session: string, version: string): string {
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    padding: 24px;
+    padding: 32px 20px;
     -webkit-font-smoothing: antialiased;
   }
   .card {
-    background: var(--bg);
+    background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 40px;
-    max-width: 480px;
+    border-radius: 16px;
+    padding: 48px;
+    max-width: 460px;
     width: 100%;
-    text-align: center;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    text-align: left;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
   }
   .logo {
     font-family: var(--font-mono);
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--accent);
     text-transform: uppercase;
-    letter-spacing: 0.15em;
-    margin-bottom: 24px;
+    letter-spacing: 0.12em;
+    margin-bottom: 32px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
   }
-  h1 { margin: 0 0 8px; font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
-  p.sub { margin: 0 0 16px; font-size: 15px; color: var(--text-muted); line-height: 1.5; }
+  .logo::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+  h1 { margin: 0 0 10px; font-size: 24px; font-weight: 700; color: var(--text); letter-spacing: -0.025em; line-height: 1.2; }
+  p.sub { margin: 0 0 24px; font-size: 16px; color: var(--text-muted); line-height: 1.55; }
   p.why {
-    margin: 0 0 28px;
-    font-size: 14px;
+    margin: 0 0 32px;
+    font-size: 15px;
     color: var(--text-muted);
-    font-style: italic;
-    line-height: 1.6;
-    padding: 16px;
-    background: var(--bg-raised);
-    border-radius: 8px;
-    border-left: 3px solid var(--accent);
+    line-height: 1.65;
+    padding: 20px 24px;
+    background: var(--accent-soft);
+    border-radius: 12px;
+    border: 1px solid rgba(244, 129, 32, 0.15);
     text-align: left;
+    position: relative;
+  }
+  p.why::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 20px; bottom: 20px;
+    width: 3px;
+    background: var(--accent);
+    border-radius: 0 2px 2px 0;
+  }
+  .record-wrap {
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .record-wrap.active {
+    border-style: solid;
+    border-color: var(--accent);
+    background: var(--accent-soft);
   }
   .btn {
     display: inline-flex;
@@ -123,24 +155,27 @@ function htmlPage(session: string, version: string): string {
     justify-content: center;
     gap: 6px;
     border: none;
-    border-radius: 8px;
-    padding: 10px 24px;
+    border-radius: 10px;
+    padding: 12px 28px;
     font-family: var(--font-sans);
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 15px;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
   }
-  .btn:hover { opacity: 0.9; }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
   .btn-record {
     background: var(--accent);
     color: #fff;
+    box-shadow: 0 2px 8px rgba(244, 129, 32, 0.25);
   }
-  .btn-record:hover { background: var(--accent-hover); }
+  .btn-record:hover { background: var(--accent-hover); box-shadow: 0 4px 12px rgba(244, 129, 32, 0.3); }
   .btn-stop {
     background: #dc2626;
     color: #fff;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
   }
   .btn-stop:hover { background: #b91c1c; }
   .btn-play {
@@ -150,65 +185,68 @@ function htmlPage(session: string, version: string): string {
   .btn-send {
     background: var(--accent);
     color: #fff;
+    box-shadow: 0 2px 8px rgba(244, 129, 32, 0.25);
   }
   .btn-send:hover { background: var(--accent-hover); }
   .btn-secondary {
-    background: transparent;
+    background: var(--card);
     color: var(--text-muted);
     border: 1px solid var(--border);
+    font-weight: 500;
   }
   .btn-secondary:hover {
-    border-color: var(--border-hover);
+    border-color: var(--text-faint);
     color: var(--text);
   }
   .timer {
     font-family: var(--font-mono);
-    font-size: 36px;
+    font-size: 40px;
     font-weight: 500;
     color: var(--text);
-    margin: 8px 0;
+    margin: 4px 0 12px;
     font-variant-numeric: tabular-nums;
   }
-  .actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
+  .actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
   .hidden { display: none !important; }
   .field { margin-top: 20px; text-align: left; }
   .field label {
     display: block;
-    font-family: var(--font-mono);
-    font-size: 0.7rem;
-    font-weight: 500;
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 8px;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
   }
   .field input, .field textarea {
     width: 100%;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px 12px;
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
     color: var(--text);
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: 15px;
     outline: none;
-    transition: border-color 0.2s;
+    transition: all 0.2s;
   }
-  .field input:focus, .field textarea:focus { border-color: var(--accent); }
-  .field textarea { resize: vertical; min-height: 60px; }
+  .field input:focus, .field textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(244, 129, 32, 0.1);
+  }
+  .field textarea { resize: vertical; min-height: 72px; }
   .field input::placeholder, .field textarea::placeholder { color: var(--text-faint); }
-  .privacy { margin-top: 24px; font-size: 12px; color: var(--text-faint); line-height: 1.5; }
-  .status { margin-top: 16px; font-size: 14px; min-height: 20px; font-weight: 500; }
+  .privacy { margin-top: 28px; font-size: 13px; color: var(--text-faint); line-height: 1.6; }
+  .status { margin-top: 16px; font-size: 14px; min-height: 20px; font-weight: 500; text-align: center; }
   .status.ok { color: #16a34a; }
   .status.err { color: #dc2626; }
   .waveform { height: 40px; display: flex; align-items: center; justify-content: center; gap: 3px; margin: 12px 0; }
   .bar { width: 4px; background: var(--accent); border-radius: 2px; animation: bounce 0.6s infinite ease-in-out alternate; }
   @keyframes bounce { from { height: 4px; } to { height: 32px; } }
-  .record-area { min-height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .record-area { min-height: 100px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
   .divider {
     height: 1px;
     background: var(--border);
-    margin: 24px 0;
+    margin: 28px 0;
     width: 100%;
   }
 </style>
@@ -220,24 +258,26 @@ function htmlPage(session: string, version: string): string {
   <p class="sub">Record a voice note for me. Only I see it.</p>
   <p class="why">I notice quite a number of people are using this tool that I built, but there's no way for me to see you or hear you. So I thought I would make this.</p>
 
-  <div id="step-record" class="record-area">
-    <button id="btn-record" class="btn btn-record">● Record</button>
-    <div class="waveform hidden" id="waveform">
-      <div class="bar" style="animation-delay:0s"></div>
-      <div class="bar" style="animation-delay:0.1s"></div>
-      <div class="bar" style="animation-delay:0.2s"></div>
-      <div class="bar" style="animation-delay:0.3s"></div>
-      <div class="bar" style="animation-delay:0.4s"></div>
+  <div class="record-wrap" id="record-wrap">
+    <div id="step-record" class="record-area">
+      <button id="btn-record" class="btn btn-record">● Record</button>
+      <div class="waveform hidden" id="waveform">
+        <div class="bar" style="animation-delay:0s"></div>
+        <div class="bar" style="animation-delay:0.1s"></div>
+        <div class="bar" style="animation-delay:0.2s"></div>
+        <div class="bar" style="animation-delay:0.3s"></div>
+        <div class="bar" style="animation-delay:0.4s"></div>
+      </div>
+      <div class="timer hidden" id="timer">00:00</div>
     </div>
-    <div class="timer hidden" id="timer">00:00</div>
-  </div>
 
-  <div id="step-review" class="hidden">
-    <div class="timer" id="duration">00:00</div>
-    <div class="actions">
-      <button id="btn-play" class="btn btn-play">▶ Play</button>
-      <button id="btn-rerecord" class="btn btn-secondary">↻ Re-record</button>
-      <button id="btn-send" class="btn btn-send">✉ Send</button>
+    <div id="step-review" class="hidden">
+      <div class="timer" id="duration">00:00</div>
+      <div class="actions">
+        <button id="btn-play" class="btn btn-play">▶ Play</button>
+        <button id="btn-rerecord" class="btn btn-secondary">↻ Re-record</button>
+        <button id="btn-send" class="btn btn-send">✉ Send</button>
+      </div>
     </div>
   </div>
 
@@ -303,6 +343,7 @@ function htmlPage(session: string, version: string): string {
     chunks = [];
     mediaRecorder = null;
     isRecording = false;
+    $('record-wrap').classList.remove('active');
     $('step-record').classList.remove('hidden');
     $('step-review').classList.add('hidden');
     $('waveform').classList.add('hidden');
@@ -347,6 +388,7 @@ function htmlPage(session: string, version: string): string {
     };
     mediaRecorder.start(100);
     isRecording = true;
+    $('record-wrap').classList.add('active');
     $('btn-record').textContent = '■ Stop';
     $('btn-record').className = 'btn btn-stop';
     $('waveform').classList.remove('hidden');
