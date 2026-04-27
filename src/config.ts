@@ -44,6 +44,8 @@ export interface KimiConfig {
   memoryMaxEntries?: number;
   /** Embedding model for memory vectors. Default: @cf/baai/bge-base-en-v1.5. */
   memoryEmbeddingModel?: string;
+  /** Model for internal plumbing tasks (memory verification, hypothetical queries). Default: @cf/meta/llama-4-scout-17b-16e-instruct. */
+  plumbingModel?: string;
   /** Enable Code Mode: present tools as a TypeScript API and execute generated code in a sandbox. */
   codeMode?: boolean;
 }
@@ -138,6 +140,7 @@ export async function loadConfig(): Promise<KimiConfig | null> {
   const envMemoryMaxAgeDays = readNumberEnv("KIMIFLARE_MEMORY_MAX_AGE_DAYS");
   const envMemoryMaxEntries = readNumberEnv("KIMIFLARE_MEMORY_MAX_ENTRIES");
   const envMemoryEmbeddingModel = process.env.KIMIFLARE_MEMORY_EMBEDDING_MODEL;
+  const envPlumbingModel = process.env.KIMIFLARE_PLUMBING_MODEL;
   const envCodeMode = readBooleanEnv("KIMIFLARE_CODE_MODE");
 
   if (envAccount && envToken) {
@@ -163,6 +166,7 @@ export async function loadConfig(): Promise<KimiConfig | null> {
       memoryMaxAgeDays: envMemoryMaxAgeDays,
       memoryMaxEntries: envMemoryMaxEntries,
       memoryEmbeddingModel: envMemoryEmbeddingModel,
+      plumbingModel: envPlumbingModel,
       codeMode: envCodeMode,
     };
   }
@@ -195,6 +199,7 @@ export async function loadConfig(): Promise<KimiConfig | null> {
         memoryMaxAgeDays: envMemoryMaxAgeDays ?? parsed.memoryMaxAgeDays,
         memoryMaxEntries: envMemoryMaxEntries ?? parsed.memoryMaxEntries,
         memoryEmbeddingModel: envMemoryEmbeddingModel ?? parsed.memoryEmbeddingModel,
+        plumbingModel: envPlumbingModel ?? parsed.plumbingModel,
         codeMode: envCodeMode ?? parsed.codeMode,
       };
     }

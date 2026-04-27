@@ -93,6 +93,7 @@ interface Cfg {
   memoryMaxAgeDays?: number;
   memoryMaxEntries?: number;
   memoryEmbeddingModel?: string;
+  plumbingModel?: string;
   codeMode?: boolean;
 }
 
@@ -320,6 +321,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         accountId: cfg.accountId,
         apiToken: cfg.apiToken,
         model: cfg.model,
+        plumbingModel: cfg.plumbingModel,
         embeddingModel: cfg.memoryEmbeddingModel,
         gateway: gatewayFromConfig(cfg),
         maxAgeDays: cfg.memoryMaxAgeDays ?? RETENTION.memoryMaxAgeDays,
