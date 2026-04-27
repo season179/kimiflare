@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Box, Text, useInput } from "ink";
+import { Box, Text, useInput, useWindowSize } from "ink";
 import SelectInput from "ink-select-input";
 import { CustomTextInput } from "./text-input.js";
 import type { Theme } from "./theme.js";
@@ -41,6 +41,7 @@ export function CommandWizard({ theme, mode, initial, existingNames, builtinName
   const [cmdModel, setCmdModel] = useState<string | undefined>(initial?.model);
   const [source, setSource] = useState<CommandSource>(initial?.source ?? "project");
   const [error, setError] = useState<string | null>(null);
+  const { columns } = useWindowSize();
 
   const totalSteps = 5; // approximate for progress indicator
   const stepIndex =
@@ -214,12 +215,59 @@ export function CommandWizard({ theme, mode, initial, existingNames, builtinName
           </>
         );
 
-      case "template":
-        return (
-          <>
+      case "template": {
+        const guide = (
+          <Box flexDirection="column" paddingLeft={1}>
             <Text color={theme.accent} bold>
-              {mode === "create" ? "Create" : "Edit"} custom command — Template ({stepIndex}/{totalSteps})
+              What is this?
             </Text>
+            <Text color={theme.info.color} dimColor>
+              A prompt template — instructions to the AI.
+            </Text>
+            <Text color={theme.info.color} dimColor>
+              When you type /{name || "yourcommand"} later, this gets sent to the model.
+            </Text>
+            <Box marginTop={1} flexDirection="column">
+              <Text color={theme.accent} bold>
+                Variables
+              </Text>
+              <Text color={theme.info.color} dimColor>
+                {"  "}$1, $2 ...     → arguments you type
+              </Text>
+              <Text color={theme.info.color} dimColor>
+                {"  "}$ARGUMENTS     → everything after the command
+              </Text>
+            </Box>
+            <Box marginTop={1} flexDirection="column">
+              <Text color={theme.accent} bold>
+                Dynamic inlines
+              </Text>
+              <Text color={theme.info.color} dimColor>
+                {"  "}!`git diff`    → shell output inlined
+              </Text>
+              <Text color={theme.info.color} dimColor>
+                {"  "}@README.md     → file contents inlined
+              </Text>
+            </Box>
+            <Box marginTop={1} flexDirection="column">
+              <Text color={theme.accent} bold>
+                Example
+              </Text>
+              <Text color={theme.info.color} dimColor>
+                Review this PR diff:
+              </Text>
+              <Text color={theme.info.color} dimColor>
+                !`git diff main...HEAD`
+              </Text>
+              <Text color={theme.info.color} dimColor>
+                Focus on: $1
+              </Text>
+            </Box>
+          </Box>
+        );
+
+        const inputArea = (
+          <Box flexDirection="column" flexGrow={1}>
             {error && <Text color={theme.error}>{error}</Text>}
             <Box marginTop={1}>
               <CustomTextInput
@@ -230,14 +278,41 @@ export function CommandWizard({ theme, mode, initial, existingNames, builtinName
                 enablePaste
               />
             </Box>
-            <Text color={theme.info.color} dimColor>
-              Paste multi-line templates with Ctrl+V. Variables: $1 $2 ... $ARGUMENTS
+            {columns < 100 && (
+              <>
+                <Text color={theme.info.color} dimColor>
+                  Paste multi-line templates with Ctrl+V.
+                </Text>
+                <Text color={theme.info.color} dimColor>
+                  Variables: $1 $2 ... $ARGUMENTS  Shell: !`cmd`  File: @path
+                </Text>
+              </>
+            )}
+          </Box>
+        );
+
+        return (
+          <>
+            <Text color={theme.accent} bold>
+              {mode === "create" ? "Create" : "Edit"} custom command — Template ({stepIndex}/{totalSteps})
             </Text>
-            <Text color={theme.info.color} dimColor>
-              Shell: !`cmd`    File: @path
-            </Text>
+            {columns >= 100 ? (
+              <Box flexDirection="row" marginTop={1}>
+                <Box flexDirection="column" width="50%">
+                  {inputArea}
+                </Box>
+                <Box flexDirection="column" width="50%">
+                  {guide}
+                </Box>
+              </Box>
+            ) : (
+              <Box flexDirection="column" marginTop={1}>
+                {inputArea}
+              </Box>
+            )}
           </>
         );
+      }
 
       case "advanced": {
         const items = [
