@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Box, Text, useApp, useInput, render } from "ink";
+import SelectInput from "ink-select-input";
 
 import { runAgentTurn } from "./agent/loop.js";
 import type { AiGatewayOptions, GatewayMeta } from "./agent/client.js";
@@ -69,6 +70,11 @@ import { platform } from "node:os";
 import { loadCustomCommands } from "./commands/loader.js";
 import { renderCommand } from "./commands/renderer.js";
 import type { CustomCommand } from "./commands/types.js";
+import { saveCustomCommand, deleteCustomCommand } from "./commands/save.js";
+import type { SaveCustomCommandOptions } from "./commands/save.js";
+import { CommandWizard } from "./ui/command-wizard.js";
+import { CommandPicker } from "./ui/command-picker.js";
+import { CommandList } from "./ui/command-list.js";
 
 interface Cfg {
   accountId: string;
@@ -247,6 +253,10 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [showHelpMenu, setShowHelpMenu] = useState(false);
   const [originalTheme, setOriginalTheme] = useState<Theme | null>(null);
+  const [commandWizard, setCommandWizard] = useState<{ mode: "create" | "edit"; initial?: CustomCommand } | null>(null);
+  const [commandPicker, setCommandPicker] = useState<{ mode: "edit" | "delete" } | null>(null);
+  const [commandToDelete, setCommandToDelete] = useState<CustomCommand | null>(null);
+  const [showCommandList, setShowCommandList] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksStartedAt, setTasksStartedAt] = useState<number | null>(null);
   const [tasksStartTokens, setTasksStartTokens] = useState<number>(0);
@@ -367,6 +377,21 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
       }
     });
   }, [cfg, setEvents]);
+
+  const reloadCustomCommands = useCallback(async () => {
+    const { commands, warnings } = await loadCustomCommands(process.cwd());
+    customCommandsRef.current = commands;
+    for (const w of warnings) {
+      setEvents((e) => [...e, { kind: "info", key: mkKey(), text: `commands: ${w}` }]);
+    }
+    const shadowed = commands.filter((c) => BUILTIN_COMMAND_NAMES.has(c.name.toLowerCase()));
+    for (const c of shadowed) {
+      setEvents((e) => [
+        ...e,
+        { kind: "info", key: mkKey(), text: `commands: /${c.name} (${c.filepath}) shadowed by built-in — will not run` },
+      ]);
+    }
+  }, [setEvents]);
 
   useEffect(() => {
     if (!cfg || updateCheckedRef.current) return;
@@ -1469,6 +1494,30 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         setCfg(null);
         return true;
       }
+      if (c === "/command") {
+        const sub = rest[0]?.toLowerCase() ?? "";
+        if (sub === "create") {
+          setCommandWizard({ mode: "create" });
+          return true;
+        }
+        if (sub === "edit") {
+          setCommandPicker({ mode: "edit" });
+          return true;
+        }
+        if (sub === "delete") {
+          setCommandPicker({ mode: "delete" });
+          return true;
+        }
+        if (sub === "list") {
+          setShowCommandList(true);
+          return true;
+        }
+        setEvents((e) => [
+          ...e,
+          { kind: "info", key: mkKey(), text: "usage: /command create | edit | delete | list" },
+        ]);
+        return true;
+      }
       if (c === "/help") {
         setShowHelpMenu(true);
         return true;
@@ -1487,6 +1536,50 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
       }
     },
     [handleSlash],
+  );
+
+  const handleCommandSave = useCallback(
+    async (opts: SaveCustomCommandOptions) => {
+      setCommandWizard(null);
+      try {
+        // If editing and name changed, delete the old file first
+        if (commandWizard?.mode === "edit" && commandWizard.initial && commandWizard.initial.name !== opts.name) {
+          await deleteCustomCommand(commandWizard.initial);
+        }
+        const result = await saveCustomCommand(opts);
+        await reloadCustomCommands();
+        setEvents((e) => [
+          ...e,
+          { kind: "info", key: mkKey(), text: `saved /${opts.name} → ${result.filepath}` },
+        ]);
+      } catch (err) {
+        setEvents((e) => [
+          ...e,
+          { kind: "error", key: mkKey(), text: `failed to save /${opts.name}: ${(err as Error).message}` },
+        ]);
+      }
+    },
+    [commandWizard, reloadCustomCommands, setEvents],
+  );
+
+  const handleCommandDelete = useCallback(
+    async (cmd: CustomCommand) => {
+      setCommandToDelete(null);
+      try {
+        await deleteCustomCommand(cmd);
+        await reloadCustomCommands();
+        setEvents((e) => [
+          ...e,
+          { kind: "info", key: mkKey(), text: `deleted /${cmd.name} (${cmd.filepath})` },
+        ]);
+      } catch (err) {
+        setEvents((e) => [
+          ...e,
+          { kind: "error", key: mkKey(), text: `failed to delete /${cmd.name}: ${(err as Error).message}` },
+        ]);
+      }
+    },
+    [reloadCustomCommands, setEvents],
   );
 
   const processMessage = useCallback(
@@ -1888,6 +1981,83 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
             .map((c) => ({ name: c.name, description: c.description }))}
           onDone={() => setShowHelpMenu(false)}
           onCommand={handleHelpCommand}
+        />
+      </Box>
+    );
+  }
+
+  if (commandWizard) {
+    return (
+      <Box flexDirection="column">
+        <CommandWizard
+          theme={theme}
+          mode={commandWizard.mode}
+          initial={commandWizard.initial}
+          existingNames={customCommandsRef.current.map((c) => c.name)}
+          builtinNames={BUILTIN_COMMAND_NAMES}
+          onDone={() => setCommandWizard(null)}
+          onSave={handleCommandSave}
+        />
+      </Box>
+    );
+  }
+
+  if (commandPicker) {
+    return (
+      <Box flexDirection="column">
+        <CommandPicker
+          theme={theme}
+          commands={customCommandsRef.current}
+          title={commandPicker.mode === "edit" ? "Edit custom command" : "Delete custom command"}
+          onPick={(cmd) => {
+            setCommandPicker(null);
+            if (!cmd) return;
+            if (commandPicker.mode === "edit") {
+              setCommandWizard({ mode: "edit", initial: cmd });
+            } else {
+              setCommandToDelete(cmd);
+            }
+          }}
+        />
+      </Box>
+    );
+  }
+
+  if (commandToDelete) {
+    return (
+      <Box flexDirection="column" borderStyle="round" borderColor={theme.accent} paddingX={1}>
+        <Text color={theme.accent} bold>
+          Delete /{commandToDelete.name}?
+        </Text>
+        <Text color={theme.info.color} dimColor>
+          {commandToDelete.filepath}
+        </Text>
+        <Box marginTop={1}>
+          <SelectInput
+            items={[
+              { label: "Yes, delete", value: "yes", key: "yes" },
+              { label: "Cancel", value: "cancel", key: "cancel" },
+            ]}
+            onSelect={(item) => {
+              if (item.value === "yes") {
+                void handleCommandDelete(commandToDelete);
+              } else {
+                setCommandToDelete(null);
+              }
+            }}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  if (showCommandList) {
+    return (
+      <Box flexDirection="column">
+        <CommandList
+          theme={theme}
+          commands={customCommandsRef.current}
+          onDone={() => setShowCommandList(false)}
         />
       </Box>
     );

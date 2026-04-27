@@ -28,6 +28,7 @@ type Page =
   | "gateway"
   | "info"
   | "config"
+  | "commands"
   | "custom";
 
 interface CommandItem {
@@ -122,6 +123,16 @@ const CATEGORIES: Category[] = [
     ],
   },
   {
+    key: "commands",
+    label: "Commands",
+    commands: [
+      { command: "/command create", description: "create a new custom slash command" },
+      { command: "/command edit", description: "edit an existing custom command" },
+      { command: "/command delete", description: "delete a custom command" },
+      { command: "/command list", description: "list all custom commands" },
+    ],
+  },
+  {
     key: "config",
     label: "Config",
     commands: [
@@ -163,7 +174,7 @@ export function HelpMenu({ theme, themes, currentThemeName, customCommands, onDo
       key: cat.key,
     }));
     if (customs.length > 0) {
-      items.push({ label: "Custom commands", value: "custom", key: "custom" });
+      items.push({ label: "Run custom commands", value: "custom", key: "custom" });
     }
     items.push({ label: "(close)", value: "__close__", key: "__close__" });
 

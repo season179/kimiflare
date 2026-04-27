@@ -7,6 +7,16 @@ export type FrontmatterParse = {
 const FENCE = /^---\s*\r?\n/;
 const KV = /^([A-Za-z][\w-]*)\s*:\s*(.*?)\s*$/;
 
+export function serializeFrontmatter(data: Record<string, string | undefined>): string {
+  const lines: string[] = [];
+  for (const [key, value] of Object.entries(data)) {
+    if (value === undefined || value === "") continue;
+    lines.push(`${key}: ${value}`);
+  }
+  if (lines.length === 0) return "";
+  return `---\n${lines.join("\n")}\n---\n`;
+}
+
 export function parseFrontmatter(input: string): FrontmatterParse {
   const errors: string[] = [];
   if (!FENCE.test(input)) {
