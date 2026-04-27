@@ -455,3 +455,48 @@ These do not need to be answered to merge this document. They're the agenda for 
 - Estimates. None given on purpose.
 
 The next step is a conversation that picks one or two of the items in §7 and §9 and turns them into focused PRs.
+
+---
+
+## 11. Progress log
+
+This section is updated as work lands. Dates are absolute. The research doc itself is intentionally not rewritten — the design/tensions stay legible.
+
+### 2026-04-27 — Milestone 1 hotfix (`fix/auto-compact-and-diff-reducer`)
+
+Branch: `fix/auto-compact-and-diff-reducer` off `main` at `5617f68` (PR #169).
+Status: **all commits landed locally; awaiting user OK to push and open a PR.**
+
+Plan (from `~/.claude/plans/you-re-picking-up-work-concurrent-hippo.md`):
+
+1. Bypass the bash output reducer for diff-style git commands (§0.5 Issue B, §6.5, §7.3 item 2).
+2. Tighten the failure-keyword recall heuristic (§6.6, §7.3 item 3).
+3. Auto-compact via the LLM summarizer when `compiledContext` is off (§0.5 Issue A, §6.1, §7.3 item 1).
+4. Bonus: restore the `$` prefix on the right-status-bar cost cell (a pre-existing bug surfaced while running `npm test`; orthogonal to the research scope but cheap).
+
+Commits on the branch (chronological):
+
+| #  | Subject                                                                        | Touches                                                                  |
+|----|--------------------------------------------------------------------------------|--------------------------------------------------------------------------|
+| 1  | `fix(reducer): bypass bash reducer for diff-style git commands`                | `src/tools/executor.ts`, `src/tools/executor.test.ts` (new)              |
+| 2  | `fix(compaction): tighten failure-keyword artifact recall`                     | `src/agent/compaction.ts`, `src/agent/compaction.test.ts`                |
+| 3  | `fix(compact): auto-compact via LLM summarizer when compiled context is off`   | `src/app.tsx`                                                            |
+| 4  | `fix(status): restore $ prefix on cost cell in right status bar`               | `src/ui/status.tsx`                                                      |
+
+Key implementation notes:
+
+- **Diff bypass.** New exported `isDiffCommand(cmd)` in `src/tools/executor.ts`. Matches `git show` (excluding `show-ref` / `show-branch`), `git diff`, `git format-patch`, `git log` with `-p` / `--patch`, and `git stash show` with `-p` / `--patch`. When matched, the executor stores the raw output as an artifact (so `expand_artifact` still works) and returns the unreduced content. Unit-tested in `src/tools/executor.test.ts`.
+- **Failure-keyword tightening.** The recall loop now requires `meta.summary` to contain the keyword too, not just any bash artifact. Honest caveat from the plan: with the existing entry shape `bash failed: <cmd>`, `failure.split(":")[0]` produces `"bash failed"`, and bash artifact summaries follow `bash: <cmd snippet>` — so the failure-keyword channel is now effectively dormant. That's the *defensive* outcome §7.3 item 3 called for; redesigning the keyword extractor belongs to Milestone 2. The file-path channel is unaffected and remains the higher-signal one.
+- **Auto-compact fallback.** The post-turn block in `src/app.tsx` now checks `shouldCompact()` regardless of the flag. With the flag on, the heuristic `compactCompiled` runs as before. With the flag off, it falls back to `compactMessages` (the same async LLM summarizer the manual `/compact` command uses). The LLM call sits inside its own `try/catch` so a compaction failure surfaces as a non-fatal info event rather than killing the session — the turn that triggered it has already succeeded. Threshold reuses `shouldCompact()` defaults (80 K tokens / 12 turns) — no new tuning was introduced.
+
+Verification:
+
+- `npm run typecheck` clean across all four commits.
+- `npm test` after the full set: **139 passing, 0 failing**. Before the `$` fix the suite had 138 pass / 1 pre-existing fail (`src/ui/status.test.ts`); the `$` commit fixes it.
+- TUI smoke tests not yet run by the assistant; called out in the plan as a manual user step (drive a long session without `KIMIFLARE_COMPILED_CONTEXT=1` for Fix 1; trigger a merge conflict and ask for `git show`/`git diff` for Fix 2).
+
+If this conversation gets compacted or lost, resuming should be straightforward: branch is local, commits are on it, plan file at `~/.claude/plans/you-re-picking-up-work-concurrent-hippo.md` has the design rationale, and the next step is the user's go/no-go on `git push` + opening a PR.
+
+### Milestone 2 — not started
+
+Items §7.1 (read-side memory injection at session start), §7.2 (Scout for plumbing + deterministic topic-key normalizer), §7.4 (Code Mode TS API determinism), and ArtifactStore persistence. Each is its own PR; ordering to be discussed with the user before any of them starts.
