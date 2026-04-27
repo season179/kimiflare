@@ -6,6 +6,8 @@ import {
   formatRecalledArtifacts,
   serializeSessionState,
   buildSessionStateMessage,
+  serializeArtifactStore,
+  deserializeArtifactStore,
 } from "./session-state.js";
 
 describe("emptySessionState", () => {
@@ -121,5 +123,61 @@ describe("buildSessionStateMessage", () => {
     assert.strictEqual(msg.role, "system");
     assert.ok(typeof msg.content === "string");
     assert.ok(msg.content.includes("compiled session state"));
+  });
+});
+
+describe("serializeArtifactStore", () => {
+  it("returns an empty array for an empty store", () => {
+    const store = new ArtifactStore();
+    assert.deepStrictEqual(serializeArtifactStore(store), []);
+  });
+
+  it("serializes artifacts in timestamp order", () => {
+    const store = new ArtifactStore();
+    store.add({ id: "a1", type: "bash_log", summary: "s1", raw: "r1", source: "bash", ts: "2024-01-01T00:00:00Z" });
+    store.add({ id: "a2", type: "read_slice", summary: "s2", raw: "r2", source: "read", ts: "2024-01-02T00:00:00Z" });
+    const data = serializeArtifactStore(store);
+    assert.strictEqual(data.length, 2);
+    assert.strictEqual(data[0]!.id, "a1");
+    assert.strictEqual(data[1]!.id, "a2");
+  });
+
+  it("truncates raw content to 50 KB", () => {
+    const store = new ArtifactStore();
+    const longRaw = "x".repeat(60_000);
+    store.add({ id: "a1", type: "bash_log", summary: "s1", raw: longRaw, source: "bash", ts: "2024-01-01T00:00:00Z" });
+    const data = serializeArtifactStore(store);
+    assert.strictEqual(data[0]!.raw.length, 50_000);
+  });
+});
+
+describe("deserializeArtifactStore", () => {
+  it("restores an empty store from an empty array", () => {
+    const store = deserializeArtifactStore([]);
+    assert.strictEqual(store.size(), 0);
+  });
+
+  it("restores artifacts and respects store limits", () => {
+    const data = [
+      { id: "a1", type: "bash_log" as const, summary: "s1", raw: "r1", source: "bash", ts: "2024-01-01T00:00:00Z" },
+      { id: "a2", type: "read_slice" as const, summary: "s2", raw: "r2", source: "read", ts: "2024-01-02T00:00:00Z" },
+    ];
+    const store = deserializeArtifactStore(data);
+    assert.strictEqual(store.size(), 2);
+    assert.strictEqual(store.get("a1")?.raw, "r1");
+    assert.strictEqual(store.get("a2")?.source, "read");
+  });
+
+  it("is the inverse of serializeArtifactStore", () => {
+    const original = new ArtifactStore();
+    original.add({ id: "a1", type: "bash_log", summary: "s1", raw: "hello world", source: "bash", ts: "2024-01-01T00:00:00Z" });
+    original.add({ id: "a2", type: "grep_result", summary: "s2", raw: "match", source: "grep", path: "src/x.ts", ts: "2024-01-02T00:00:00Z" });
+
+    const data = serializeArtifactStore(original);
+    const restored = deserializeArtifactStore(data);
+
+    assert.strictEqual(restored.size(), 2);
+    assert.strictEqual(restored.get("a1")?.raw, "hello world");
+    assert.strictEqual(restored.get("a2")?.path, "src/x.ts");
   });
 });

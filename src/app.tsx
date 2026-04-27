@@ -14,6 +14,8 @@ import {
   emptySessionState,
   ArtifactStore,
   formatRecalledArtifacts,
+  serializeArtifactStore,
+  deserializeArtifactStore,
   type SessionState,
 } from "./agent/session-state.js";
 import { ToolExecutor, ALL_TOOLS, type PermissionDecision } from "./tools/executor.js";
@@ -576,6 +578,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         updatedAt: new Date().toISOString(),
         messages: messagesRef.current,
         sessionState: compiledContextRef.current ? sessionStateRef.current : undefined,
+        artifactStore: serializeArtifactStore(artifactStoreRef.current),
       });
     } catch {
       /* non-fatal */
@@ -978,6 +981,10 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         sessionIdRef.current = file.id;
         if (file.sessionState && compiledContextRef.current) {
           sessionStateRef.current = file.sessionState;
+        }
+        if (file.artifactStore) {
+          artifactStoreRef.current = deserializeArtifactStore(file.artifactStore);
+        } else {
           artifactStoreRef.current = new ArtifactStore();
         }
         setEvents([
