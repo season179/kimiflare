@@ -131,6 +131,55 @@ export class ArtifactStore {
   }
 }
 
+/** Serialized form of an Artifact for session persistence. */
+export interface SerializedArtifact {
+  id: string;
+  type: ArtifactType;
+  summary: string;
+  raw: string;
+  source: string;
+  path?: string;
+  lineRange?: { start: number; end: number };
+  ts: string;
+}
+
+/** Serialize an ArtifactStore to a plain array, respecting size caps. */
+export function serializeArtifactStore(store: ArtifactStore): SerializedArtifact[] {
+  const MAX_ARTIFACT_CHARS = 50_000;
+  const out: SerializedArtifact[] = [];
+  for (const a of store.list()) {
+    out.push({
+      id: a.id,
+      type: a.type,
+      summary: a.summary,
+      raw: a.raw.slice(0, MAX_ARTIFACT_CHARS),
+      source: a.source,
+      path: a.path,
+      lineRange: a.lineRange,
+      ts: a.ts,
+    });
+  }
+  return out;
+}
+
+/** Deserialize a plain array back into an ArtifactStore, respecting limits. */
+export function deserializeArtifactStore(data: SerializedArtifact[]): ArtifactStore {
+  const store = new ArtifactStore();
+  for (const a of data) {
+    store.add({
+      id: a.id,
+      type: a.type,
+      summary: a.summary,
+      raw: a.raw,
+      source: a.source,
+      path: a.path,
+      lineRange: a.lineRange,
+      ts: a.ts,
+    });
+  }
+  return store;
+}
+
 /** Format recalled artifacts as a compact context block for injection into messages. */
 export function formatRecalledArtifacts(recalled: { id: string; artifact: Artifact }[]): string {
   if (recalled.length === 0) return "";

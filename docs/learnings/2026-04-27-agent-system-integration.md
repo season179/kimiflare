@@ -465,7 +465,7 @@ This section is updated as work lands. Dates are absolute. The research doc itse
 ### 2026-04-27 — Milestone 1 hotfix (`fix/auto-compact-and-diff-reducer`)
 
 Branch: `fix/auto-compact-and-diff-reducer` off `main` at `5617f68` (PR #169).
-Status: **all commits landed locally; awaiting user OK to push and open a PR.**
+Status: **merged to `main` and in production.**
 
 Plan (from `~/.claude/plans/you-re-picking-up-work-concurrent-hippo.md`):
 
@@ -495,8 +495,18 @@ Verification:
 - `npm test` after the full set: **139 passing, 0 failing**. Before the `$` fix the suite had 138 pass / 1 pre-existing fail (`src/ui/status.test.ts`); the `$` commit fixes it.
 - TUI smoke tests not yet run by the assistant; called out in the plan as a manual user step (drive a long session without `KIMIFLARE_COMPILED_CONTEXT=1` for Fix 1; trigger a merge conflict and ask for `git show`/`git diff` for Fix 2).
 
-If this conversation gets compacted or lost, resuming should be straightforward: branch is local, commits are on it, plan file at `~/.claude/plans/you-re-picking-up-work-concurrent-hippo.md` has the design rationale, and the next step is the user's go/no-go on `git push` + opening a PR.
+### Milestone 2 — in progress
 
-### Milestone 2 — not started
+Ordering: ArtifactStore persistence → Scout plumbing → Code Mode determinism → session-start recall.
 
-Items §7.1 (read-side memory injection at session start), §7.2 (Scout for plumbing + deterministic topic-key normalizer), §7.4 (Code Mode TS API determinism), and ArtifactStore persistence. Each is its own PR; ordering to be discussed with the user before any of them starts.
+#### PR 1 — `feat/artifact-store-persistence` (in progress)
+
+Addresses finding §6.2: `ArtifactStore` is not persisted, so `/resume` leaves compiled-context recall broken.
+
+Changes:
+- `src/agent/session-state.ts` — added `SerializedArtifact` interface, `serializeArtifactStore()`, and `deserializeArtifactStore()` functions. Serialization truncates raw content to 50 KB per artifact (matching the in-memory cap). Deserialization feeds artifacts back through `ArtifactStore.add()` so the same LRU/size limits apply.
+- `src/sessions.ts` — added `artifactStore?: SerializedArtifact[]` to `SessionFile`.
+- `src/app.tsx` — `saveSessionSafe` now includes `artifactStore: serializeArtifactStore(artifactStoreRef.current)`; `handleResumePick` restores the store via `deserializeArtifactStore(file.artifactStore)` when present, falling back to an empty `ArtifactStore` when absent.
+- `src/agent/session-state.test.ts` — 4 new test cases: empty store round-trip, timestamp ordering, 50 KB truncation, and full inverse property.
+
+Verification: `npm run typecheck` clean; `npm test` 145 passing, 0 failing (was 139 before this PR).

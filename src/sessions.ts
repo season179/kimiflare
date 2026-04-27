@@ -2,7 +2,7 @@ import { readFile, writeFile, mkdir, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ChatMessage } from "./agent/messages.js";
-import type { SessionState } from "./agent/session-state.js";
+import type { SessionState, SerializedArtifact } from "./agent/session-state.js";
 import { listFilesByMtime, pruneFiles, RETENTION } from "./storage-limits.js";
 
 export interface SessionSummary {
@@ -23,6 +23,8 @@ export interface SessionFile {
   messages: ChatMessage[];
   /** Compiled session state for token-optimized context (optional). */
   sessionState?: SessionState;
+  /** Persisted artifact store for recalled raw tool outputs (optional). */
+  artifactStore?: SerializedArtifact[];
 }
 
 function sessionsDir(): string {
