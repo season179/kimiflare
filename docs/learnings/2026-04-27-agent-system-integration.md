@@ -225,6 +225,55 @@ Every arrow below is verified in the code.
 
 ---
 
+## 3.5. Prompt caching on Workers AI — verified facts and kimiflare's current state
+
+This deserves its own section because cache hit rate is plausibly the single biggest lever for the "be cheap" goal, and several of the issues below interact with it directly.
+
+### What Workers AI actually offers
+
+Per the [Workers AI prompt-caching docs](https://developers.cloudflare.com/workers-ai/features/prompt-caching/):
+
+- **Prefix caching is enabled automatically** for select models (model-by-model — check the model page).
+- **Mechanism:** Workers AI stores the computed input tensors from the prefill stage and reuses them when subsequent requests share the same prompt prefix.
+- **Cached input tokens are billed at a discounted rate** versus regular input tokens.
+- **Routing requirement:** the `x-session-affinity` header with a stable session identifier is what tells the platform to keep routing requests to the same model instance, which is what makes a prefix-cache hit likely. Without affinity, requests can land on different replicas where the prefix isn't cached.
+- **Hit/miss rule is strict:** prefix matching is exact token sequence from the start. **A single token difference invalidates the cache from that point onward.**
+- **Optimization shape:** static content (system prompt, tool definitions) at the very start; dynamic content (timestamps, user queries, recalled artifacts) at the end.
+- **Verification:** the `usage.prompt_tokens_details.cached_tokens` field on the response tells you how many tokens hit the cache.
+
+This is not the same as **AI Gateway caching**, which is a separate layer: AI Gateway caches *whole responses* keyed by SHA-256 of the entire request body. Identical request → identical response served from cache. That's request-level deduplication, not prefix caching, and it's an unrelated optimization.
+
+### What kimiflare already does
+
+Commit `6b54723 feat: cache-stable prefix engineering + instrumentation` did real work here:
+
+- **Splits the system prompt** into a static prefix (immutable per session) and a session prefix (changes only when mode/tools/context change). See `buildStaticPrefix` and `buildSessionPrefix` in `src/agent/system-prompt.ts`.
+- **Sends both `X-Session-ID` and `x-session-affinity` headers** in the Workers AI client (`src/agent/client.ts:85-86`), with a test that verifies both go out (`src/agent/client.test.ts:38-39`).
+- **Adds `cacheStablePrompts` feature flag**, defaulting to true (`src/config.ts:128`).
+- **Uses deterministic JSON serialization** (`stableStringify`) with recursive key sorting to avoid V8 insertion-order jitter in tool argument JSON.
+- **Tracks cached vs uncached tokens** (`prompt_tokens_details.cached_tokens`) in the usage tracker and surfaces it in the status bar.
+
+So this is not a hidden lever the team hasn't pulled — it's actively used and instrumented. The integration question is whether the *other* mechanisms preserve or destroy it.
+
+### What the four mechanisms do to cache stability
+
+Given the "single token difference invalidates from that point onward" rule:
+
+| Layer | Cache-stable? | Notes |
+|---|---|---|
+| `buildStaticPrefix` | Yes | Designed to be byte-identical across all turns of a session. |
+| `buildSessionPrefix` | Mostly | Includes `Today: ${date}` — this is stable within a session but means crossing midnight breaks the cache. Also includes the tools list, which changes if MCP servers connect/disconnect mid-session. |
+| Tool definitions in native mode | Stable | Same tools list across turns → same tool descriptions. |
+| **Tool definitions in Code Mode** | **No.** | The TypeScript API is regenerated and embedded in the `execute_code` tool description. Even if the tool list is the same, generated TS may not be byte-identical (key ordering, JSDoc rendering) without explicit determinism. This is a known cost lever that hasn't been pulled yet — see §7.4. |
+| Compiled context recall (artifacts injected before each turn) | Position matters | The raw artifact content is appended *after* the static prefix and *before* the user message. As long as that position is consistent and the static portions before it don't change, the static prefix still hits cache. The recall content itself doesn't hit cache (fine — it changes per turn anyway). The risk is if the recall is inserted *before* a stable section, it shifts everything after it and breaks the prefix match. |
+| Compiled-context SessionState message | Stable within a turn, changes after compaction | After auto-compaction the SessionState system message contents change. That's a one-off cache invalidation per compaction event, which is acceptable — compaction is rare relative to turns. |
+| Compact (LLM summarization) | Cache rebuild after each `/compact` | Same shape as compiled-context post-compaction: a new system message replaces a chunk of history. Acceptable. |
+| Memory recall | Per-turn variable | Recalled memories are different each turn → can't cache that segment. Same positioning concern as compiled-context recall. |
+
+**The concrete priority for cache stability:** Code Mode is the load-bearing problem. With ~25 native tools, the Code Mode TS API embedded in the `execute_code` tool description is hundreds of tokens that change every turn — and because it's part of the *tool definition* (early in the request body, before the conversation messages), variability there invalidates the cache for *everything that follows*. Native-mode tool definitions are stable; Code Mode's are not. This single fact may dominate the per-turn billed-input cost when Code Mode is on.
+
+---
+
 ## 4. Overlapping concerns
 
 Same idea, three implementations:
@@ -351,10 +400,16 @@ These are not memory-specific but they remove integration friction:
 
 None of these is a memory change. They're hygiene that the integration story depends on.
 
-### 7.4 Code-mode ↔ everything else
+### 7.4 Code-mode ↔ caching
 
-- **Move the TypeScript API out of the tool description and into the session-stable system prefix** so prompt caching can reuse it across turns. Current state destroys cache stability and probably costs more than the savings code mode provides.
+This is the highest-impact cache-stability fix, given the verified Workers AI prefix-cache behavior in §3.5.
+
+- **Make the Code Mode TypeScript API byte-stable across turns.** Two parts:
+  1. *Determinism.* The generator (`src/code-mode/api-generator.ts`) needs to produce byte-identical output when given the same tool list. Sort keys, normalize whitespace, normalize JSDoc rendering. This is the same kind of fix that `stableStringify` already applies elsewhere.
+  2. *Position.* The TS API currently sits inside the `execute_code` tool description, which is part of the request's tool definitions block — early in the byte sequence, before the conversation messages. That's actually the *right* position for cache hits, *if* the content is stable. Once it's deterministic, it should hit cache like any other static tool description.
 - **Optional: archive code-mode scripts as their own artifact type.** Not required for correctness, but if the model writes a useful script the user might want to reuse it.
+
+A reasonable first measurement: run the same multi-turn task twice, once in native mode and once in Code Mode, and compare `prompt_tokens_details.cached_tokens` totals. The gap quantifies how much Code Mode is currently leaving on the table.
 
 ---
 
