@@ -27,6 +27,7 @@ export interface MemoryManagerOpts {
   accountId: string;
   apiToken: string;
   model?: string;
+  plumbingModel?: string;
   embeddingModel?: string;
   gateway?: AiGatewayOptions;
   maxAgeDays?: number;
@@ -74,6 +75,30 @@ function redactSecrets(text: string): string {
     result = result.replace(pattern, replacement);
   }
   return result;
+}
+
+/** Deterministic topic-key normalization: lowercase, strip non-alphanum, replace spaces with _, truncate to 60. */
+export function deterministicTopicKey(content: string): string {
+  return content
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .trim()
+    .replace(/\s+/g, "_")
+    .slice(0, 60);
+}
+
+/** Pick the best existing topic key for a memory, or generate a new one. */
+export function pickTopicKey(content: string, existingKeys: string[]): string | null {
+  const normalized = deterministicTopicKey(content);
+  if (!normalized) return null;
+
+  for (const existing of existingKeys) {
+    if (normalized.includes(existing) || existing.includes(normalized)) {
+      return existing;
+    }
+  }
+
+  return normalized;
 }
 
 const VERIFY_SYSTEM = `You are a fact-checking engine. Given a memory and the conversation context it was extracted from, verify whether the memory is directly supported by the context.
@@ -138,6 +163,15 @@ export class MemoryManager {
     };
   }
 
+  private get plumbingLlmOpts(): LlmOpts {
+    return {
+      accountId: this.opts.accountId,
+      apiToken: this.opts.apiToken,
+      model: this.opts.plumbingModel ?? "@cf/meta/llama-4-scout-17b-16e-instruct",
+      gateway: this.opts.gateway,
+    };
+  }
+
   private shouldRedact(): boolean {
     return this.opts.redactSecrets !== false;
   }
@@ -172,7 +206,7 @@ export class MemoryManager {
     }
 
     // 3. Normalize topic key
-    const topicKey = await this.normalizeTopicKey(safeContent, repoPath, signal);
+    const topicKey = this.normalizeTopicKey(safeContent, repoPath);
 
     // 4. Check for supersession
     const supersededIds: string[] = [];
@@ -312,7 +346,7 @@ export class MemoryManager {
 
   private async verifyMemory(content: string, signal?: AbortSignal): Promise<{ valid: boolean; corrected_content: string | null }> {
     const text = await runKimiText({
-      ...this.llmOpts,
+      ...this.plumbingLlmOpts,
       signal,
       messages: [
         { role: "system", content: VERIFY_SYSTEM },
@@ -340,29 +374,14 @@ export class MemoryManager {
     return { valid, corrected_content: corrected };
   }
 
-  private async normalizeTopicKey(content: string, repoPath: string, signal?: AbortSignal): Promise<string | null> {
+  private normalizeTopicKey(content: string, repoPath: string): string | null {
     const existingKeys = listTopicKeys(this.db!, repoPath);
-    const keysBlock = existingKeys.length > 0 ? existingKeys.join("\n") : "(none yet)";
-
-    const text = await runKimiText({
-      ...this.llmOpts,
-      signal,
-      messages: [
-        { role: "system", content: TOPIC_KEY_SYSTEM },
-        {
-          role: "user",
-          content: `Existing topic keys:\n${keysBlock}\n\nNew memory: "${content}"\n\nReturn only the topic key string.`,
-        },
-      ],
-    });
-
-    const key = text.trim().toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "").slice(0, 60);
-    return key || null;
+    return pickTopicKey(content, existingKeys);
   }
 
   private async generateHypotheticalQueries(content: string, signal?: AbortSignal): Promise<string[]> {
     const text = await runKimiText({
-      ...this.llmOpts,
+      ...this.plumbingLlmOpts,
       signal,
       messages: [
         { role: "system", content: HYPOTHETICAL_QUERIES_SYSTEM },
