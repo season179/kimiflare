@@ -37,6 +37,7 @@ import { checkForUpdate } from "./util/update-check.js";
 import type { UpdateCheckResult } from "./util/update-check.js";
 import { Onboarding } from "./ui/onboarding.js";
 import { Welcome } from "./ui/welcome.js";
+import { HelpMenu } from "./ui/help-menu.js";
 import {
   configPath,
   DEFAULT_MODEL,
@@ -241,6 +242,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
   const [theme, setTheme] = useState<Theme>(resolveTheme(initialCfg?.theme));
   const [resumeSessions, setResumeSessions] = useState<SessionSummary[] | null>(null);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [showHelpMenu, setShowHelpMenu] = useState(false);
   const [originalTheme, setOriginalTheme] = useState<Theme | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksStartedAt, setTasksStartedAt] = useState<number | null>(null);
@@ -1295,8 +1297,23 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         return true;
       }
       if (c === "/memory") {
-        if (!cfg?.memoryEnabled) {
-          setEvents((e) => [...e, { kind: "info", key: mkKey(), text: "memory is disabled. Enable with KIMIFLARE_MEMORY_ENABLED=1" }]);
+        if (!cfg) return true;
+        if (arg === "on") {
+          const next = { ...cfg, memoryEnabled: true };
+          setCfg(next);
+          void saveConfig(next).catch(() => {});
+          setEvents((e) => [...e, { kind: "info", key: mkKey(), text: "memory enabled" }]);
+          return true;
+        }
+        if (arg === "off") {
+          const next = { ...cfg, memoryEnabled: false };
+          setCfg(next);
+          void saveConfig(next).catch(() => {});
+          setEvents((e) => [...e, { kind: "info", key: mkKey(), text: "memory disabled" }]);
+          return true;
+        }
+        if (!cfg.memoryEnabled) {
+          setEvents((e) => [...e, { kind: "info", key: mkKey(), text: "memory is disabled. Use /memory on to enable it, or set KIMIFLARE_MEMORY_ENABLED=1" }]);
           return true;
         }
         if (arg === "clear") {
@@ -1444,56 +1461,23 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         return true;
       }
       if (c === "/help") {
-        const lines = [
-          "commands:",
-          "  /mode edit|plan|auto    switch mode (or shift+tab to cycle)",
-          "  /plan /auto /edit       shortcuts for /mode",
-          "  /thinking low|med|high  set reasoning effort (quality vs speed)",
-          "  /theme                  interactive theme picker (or ctrl+t)",
-          "  /theme NAME             set theme by name",
-          "  /resume                 pick a past conversation",
-          "  /compact                summarize old turns to free context",
-          "  /init                   scan this repo and write a KIMI.md for future agents",
-          "  /memory                 show memory stats",
-          "  /memory search <query>  search stored memories",
-          "  /memory clear           wipe memories for this repo",
-          "  /mcp list               list connected MCP servers and tools",
-          "  /mcp reload             reconnect all configured MCP servers",
-          "  /reasoning              toggle show/hide model reasoning",
-          "  /clear                  clear current conversation",
-          "  /hello                  send a voice note to the creator",
-          "  /community              join our Discord server",
-          "  /gateway                show gateway status",
-          "  /gateway ID             enable AI Gateway",
-          "  /gateway off            disable AI Gateway (direct Workers AI)",
-          "  /gateway cache-ttl N    set gateway cache TTL in seconds",
-          "  /gateway skip-cache T|F set gateway skip-cache flag",
-          "  /gateway collect-logs T|F  include payload in gateway logs",
-          "  /gateway metadata K=V   add metadata key-value pair",
-          "  /gateway metadata clear remove all metadata",
-          "  /cost /model /update /logout /help /exit",
-        ];
-        const customs = customCommandsRef.current.filter((c) => !BUILTIN_COMMAND_NAMES.has(c.name.toLowerCase()));
-        if (customs.length > 0) {
-          const nameWidth = Math.max(...customs.map((c) => c.name.length + 1), 22);
-          lines.push("", "custom commands:");
-          for (const c of customs) {
-            const display = `/${c.name}`.padEnd(nameWidth, " ");
-            lines.push(`  ${display}  ${c.description ?? ""}`.trimEnd());
-          }
-        }
-        lines.push(
-          "keys: ctrl-c interrupt/exit · ctrl-r toggle reasoning · ctrl-o verbose · ctrl+t theme · shift+tab cycle mode · ↑/↓ history",
-        );
-        setEvents((e) => [
-          ...e,
-          { kind: "info", key: mkKey(), text: lines.join("\n") },
-        ]);
+        setShowHelpMenu(true);
         return true;
       }
       return false;
     },
     [cfg, exit, usage, effort, theme, mode, openResumePicker, runCompact, runInit, initMcp, setCfg],
+  );
+
+  const handleHelpCommand = useCallback(
+    (command: string) => {
+      setShowHelpMenu(false);
+      const executed = handleSlash(command);
+      if (!executed) {
+        setEvents((e) => [...e, { kind: "error", key: mkKey(), text: `unknown command: ${command}` }]);
+      }
+    },
+    [handleSlash],
   );
 
   const processMessage = useCallback(
@@ -1841,6 +1825,23 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
     return (
       <Box flexDirection="column">
         <ThemePicker themes={themeList()} current={theme} onPick={handleThemePick} onPreview={(t) => setTheme(t)} />
+      </Box>
+    );
+  }
+
+  if (showHelpMenu) {
+    return (
+      <Box flexDirection="column">
+        <HelpMenu
+          theme={theme}
+          themes={themeList().map((t) => ({ name: t.name, label: t.label }))}
+          currentThemeName={theme.name}
+          customCommands={customCommandsRef.current
+            .filter((c) => !BUILTIN_COMMAND_NAMES.has(c.name.toLowerCase()))
+            .map((c) => ({ name: c.name, description: c.description }))}
+          onDone={() => setShowHelpMenu(false)}
+          onCommand={handleHelpCommand}
+        />
       </Box>
     );
   }
