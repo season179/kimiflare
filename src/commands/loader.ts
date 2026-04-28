@@ -46,7 +46,11 @@ export async function loadCustomCommands(
   );
   for (const loaded of perSource) {
     for (const cmd of loaded) {
-      if (cmd) byName.set(cmd.name, cmd);
+      if (!cmd) continue;
+      if (byName.has(cmd.name) && byName.get(cmd.name)!.source === "global" && cmd.source === "project") {
+        warnings.push(`project command /${cmd.name} shadows global command — project version will be used`);
+      }
+      byName.set(cmd.name, cmd);
     }
   }
 
@@ -152,6 +156,19 @@ async function loadOne(
     } else {
       warnings.push(`unknown effort "${data.effort}" in ${file} — ignored`);
     }
+  }
+
+  if (data.shell === "true" || data.shell === "yes") cmd.shell = true;
+  if (data.files === "true" || data.files === "yes") cmd.files = true;
+
+  const hasShell = /!`[^`]+`/.test(cmd.template);
+  const hasFiles = /(?<![\w`])@(\.?[^\s`,]+?)/.test(cmd.template);
+
+  if (hasShell && !cmd.shell) {
+    warnings.push(`command /${cmd.name} contains shell substitution but 'shell: true' is not set — shell code will be treated as literal text`);
+  }
+  if (hasFiles && !cmd.files) {
+    warnings.push(`command /${cmd.name} contains file inclusion but 'files: true' is not set — @file references will be treated as literal text`);
   }
 
   return cmd;
