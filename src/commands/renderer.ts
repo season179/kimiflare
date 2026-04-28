@@ -1,6 +1,6 @@
 import { exec } from "node:child_process";
 import { open, realpath } from "node:fs/promises";
-import { isAbsolute, relative, resolve as resolvePathJoin } from "node:path";
+import { isAbsolute, relative, resolve as resolvePathJoin, basename as pathBasename } from "node:path";
 import { promisify } from "node:util";
 import { isPathOutside } from "../util/paths.js";
 import type { CustomCommand, RenderResult } from "./types.js";
@@ -13,6 +13,24 @@ const SHELL_RE = /!`([^`]+)`/g;
 const FILE_RE = /(?<![\w`])@(\.?[^\s`,]+?)([.,;:!?)\]}]*)(?=[\s`,]|$)/g;
 const DEFAULT_MAX_FILE_BYTES = 100 * 1024;
 const DEFAULT_SHELL_TIMEOUT_MS = 5000;
+
+const SECRET_PATTERNS = [
+  /^\.env$/,
+  /^\.env\./,
+  /^\.npmrc$/,
+  /^\.netrc$/,
+  /^\.docker\/config\.json$/,
+  /^\.aws\//,
+  /^\.ssh\//,
+  /^id_rsa$/,
+  /^id_ed25519$/,
+  /^id_ecdsa$/,
+  /^id_dsa$/,
+  /\.pem$/,
+  /\.key$/,
+  /\.p12$/,
+  /\.pfx$/,
+];
 
 export function tokenizeArgs(s: string): string[] {
   return [...s.matchAll(ARG_TOKEN_RE)].map((match) => {
@@ -42,15 +60,17 @@ export async function renderCommand(
   const hadArguments = originalTemplate.includes("$ARGUMENTS");
   const hadPositionals = HAS_POSITIONAL.test(originalTemplate);
 
-  let prompt = replacePositionals(originalTemplate, args);
+  // Phase 1: shell and file substitutions on the original template only
+  let prompt = await replaceShell(originalTemplate, warnings, cmd, opts.shellTimeoutMs ?? DEFAULT_SHELL_TIMEOUT_MS);
+  prompt = await replaceFiles(prompt, warnings, cmd, cwd, maxFileBytes);
+
+  // Phase 2: positional and ARGUMENTS substitutions (user input cannot inject shell/file refs)
+  prompt = replacePositionals(prompt, args);
   prompt = prompt.replaceAll("$ARGUMENTS", argsString);
 
   if (!hadArguments && !hadPositionals && argsString !== "") {
     prompt += `\n\n${argsString}`;
   }
-
-  prompt = await replaceShell(prompt, warnings, opts.shellTimeoutMs ?? DEFAULT_SHELL_TIMEOUT_MS);
-  prompt = await replaceFiles(prompt, warnings, cwd, maxFileBytes);
 
   if (prompt.trim() === "") {
     warnings.push("rendered prompt is empty");
@@ -87,8 +107,16 @@ function replacePositionals(template: string, args: string[]): string {
 async function replaceShell(
   prompt: string,
   warnings: string[],
+  cmd: CustomCommand,
   shellTimeoutMs: number,
 ): Promise<string> {
+  if (!cmd.shell) {
+    return prompt.replace(SHELL_RE, (_match, command) => {
+      warnings.push(`ignored shell command: \`${command}\``);
+      return "";
+    });
+  }
+
   const matches = [...prompt.matchAll(SHELL_RE)];
   const replacements = await Promise.all(
     matches.map(async (match) => {
@@ -113,15 +141,29 @@ async function replaceShell(
 async function replaceFiles(
   prompt: string,
   warnings: string[],
+  cmd: CustomCommand,
   cwd: string,
   maxFileBytes: number,
 ): Promise<string> {
   const matches = [...prompt.matchAll(FILE_RE)];
   if (matches.length === 0) return prompt;
+
+  if (!cmd.files) {
+    return prompt.replace(FILE_RE, (_match, rawPath, trailing: string = "") => {
+      warnings.push(`ignored file inclusion: @${rawPath}`);
+      return "" + trailing;
+    });
+  }
+
   const realCwd = await realpath(cwd).catch(() => cwd);
   const replacements = await Promise.all(
     matches.map(async (match) => {
       const rawPath = match[1] ?? "";
+      const base = pathBasename(rawPath);
+      if (SECRET_PATTERNS.some((re) => re.test(base))) {
+        warnings.push(`file inclusion blocked: @${rawPath} — secret file pattern`);
+        return "";
+      }
       if (isAbsolute(rawPath) || rawPath.startsWith("~")) {
         warnings.push(`file inclusion skipped: @${rawPath} — outside workspace`);
         return "";

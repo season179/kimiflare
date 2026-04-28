@@ -203,4 +203,72 @@ describe("loadCustomCommands", () => {
       await cleanup();
     }
   });
+
+  it("parses shell and files frontmatter flags", async () => {
+    const { cwd, cleanup } = await setup();
+    try {
+      await writeCmd(
+        join(cwd, ".kimiflare", "commands"),
+        "test.md",
+        "---\nshell: true\nfiles: yes\n---\nbody\n",
+      );
+      const r = await loadCustomCommands(cwd);
+      assert.equal(r.commands.length, 1);
+      assert.equal(r.commands[0]!.shell, true);
+      assert.equal(r.commands[0]!.files, true);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it("warns when template contains ungated shell substitution", async () => {
+    const { cwd, cleanup } = await setup();
+    try {
+      await writeCmd(
+        join(cwd, ".kimiflare", "commands"),
+        "test.md",
+        "---\ndescription: test\n---\nRun !`echo hello`\n",
+      );
+      const r = await loadCustomCommands(cwd);
+      assert.equal(r.commands.length, 1);
+      assert.ok(r.warnings.some((w) => w.includes("shell substitution") && w.includes("not set")));
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it("warns when template contains ungated file inclusion", async () => {
+    const { cwd, cleanup } = await setup();
+    try {
+      await writeCmd(
+        join(cwd, ".kimiflare", "commands"),
+        "test.md",
+        "---\ndescription: test\n---\nRead @foo.txt\n",
+      );
+      const r = await loadCustomCommands(cwd);
+      assert.equal(r.commands.length, 1);
+      assert.ok(r.warnings.some((w) => w.includes("file inclusion") && w.includes("not set")));
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it("warns when project command shadows global command", async () => {
+    const { cwd, cleanup } = await setup();
+    const xdg = await mkdtemp(join(tmpdir(), "kf-loader-xdg-"));
+    const prevXdg = process.env.XDG_CONFIG_HOME;
+    process.env.XDG_CONFIG_HOME = xdg;
+    try {
+      await writeCmd(join(xdg, "kimiflare", "commands"), "test.md", "---\ndescription: global\n---\nGLOBAL\n");
+      await writeCmd(join(cwd, ".kimiflare", "commands"), "test.md", "---\ndescription: project\n---\nPROJECT\n");
+      const r = await loadCustomCommands(cwd);
+      assert.equal(r.commands.length, 1);
+      assert.ok(r.warnings.some((w) => w.includes("shadows global")));
+    } finally {
+      if (prevXdg === undefined) delete process.env.XDG_CONFIG_HOME;
+      else process.env.XDG_CONFIG_HOME = prevXdg;
+      await rm(xdg, { recursive: true, force: true });
+      await cleanup();
+    }
+  });
 });

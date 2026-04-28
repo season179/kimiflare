@@ -12,6 +12,8 @@ export type CustomCommand = {
   mode?: Mode;
   model?: string;
   effort?: ReasoningEffort;
+  shell?: boolean;
+  files?: boolean;
 };
 
 export type RenderResult = {

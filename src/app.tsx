@@ -1663,7 +1663,10 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
           const { prompt: rendered, warnings } = await renderCommand(custom, trimmed, {
             cwd: process.cwd(),
           });
-          for (const w of warnings) info(`${custom.name}: ${w}`);
+          for (const w of warnings) info(`/${custom.name}: ${w}`);
+          if (custom.shell) {
+            info(`/${custom.name}: executing shell code from template`);
+          }
           if (!rendered.trim()) return;
           const parts: string[] = [];
           if (custom.model) {
