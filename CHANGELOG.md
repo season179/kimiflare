@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.26.1](https://github.com/sinameraji/kimiflare/compare/v0.26.0...v0.26.1) (2026-04-28)
+
+
+### Bug Fixes
+
+* **images:** preserve images on early turns and handle paths with spaces ([624a9d2](https://github.com/sinameraji/kimiflare/commit/624a9d2da193f0cb734a15fb6c703aabcd5951fc))
+* **messages:** preserve images when user message count is below keepLastTurns threshold ([6c35f5d](https://github.com/sinameraji/kimiflare/commit/6c35f5dfbc6e68168df779ea0dc8e358b6a1639f))
+* **plan-mode:** halt agent loop when blocked tool is called in plan mode ([122c86e](https://github.com/sinameraji/kimiflare/commit/122c86e74a1916ecce471423db56488164800101))
+* **plan-mode:** halt agent loop when blocked tool is called in plan mode ([542cf43](https://github.com/sinameraji/kimiflare/commit/542cf43dd7d2dd758964c26a7f125a3b7289cd27))
+
 ## [0.26.0](https://github.com/sinameraji/kimiflare/compare/v0.25.0...v0.26.0) (2026-04-27)
 
 
