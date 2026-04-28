@@ -1,0 +1,582 @@
+import React, { useState, useEffect } from "react";
+import { Box, Text, useInput } from "ink";
+import SelectInput from "ink-select-input";
+import { spawn } from "node:child_process";
+import type { Theme } from "./theme.js";
+import type { LspServerConfig } from "../config.js";
+
+interface Preset {
+  id: string;
+  name: string;
+  description: string;
+  command: string[];
+  installCommand: string;
+  installHint: string;
+}
+
+const PRESETS: Preset[] = [
+  {
+    id: "typescript",
+    name: "TypeScript",
+    description: "TypeScript and JavaScript support",
+    command: ["typescript-language-server", "--stdio"],
+    installCommand: "npm install -g typescript-language-server typescript",
+    installHint: "Requires Node.js and npm",
+  },
+  {
+    id: "python",
+    name: "Python (Pyright)",
+    description: "Python type checking and IntelliSense",
+    command: ["pyright-langserver", "--stdio"],
+    installCommand: "npm install -g pyright",
+    installHint: "Requires Node.js and npm (alternative: pip install pyright)",
+  },
+  {
+    id: "rust",
+    name: "Rust",
+    description: "Rust analyzer for Rust code",
+    command: ["rust-analyzer"],
+    installCommand: "rustup component add rust-analyzer",
+    installHint: "Requires Rust toolchain (rustup)",
+  },
+  {
+    id: "go",
+    name: "Go",
+    description: "Go language server (gopls)",
+    command: ["gopls"],
+    installCommand: "go install golang.org/x/tools/gopls@latest",
+    installHint: "Requires Go toolchain",
+  },
+  {
+    id: "json",
+    name: "JSON",
+    description: "JSON language support",
+    command: ["vscode-json-language-server", "--stdio"],
+    installCommand: "npm install -g vscode-langservers-extracted",
+    installHint: "Requires Node.js and npm",
+  },
+  {
+    id: "css",
+    name: "CSS",
+    description: "CSS/SCSS/Less language support",
+    command: ["vscode-css-language-server", "--stdio"],
+    installCommand: "npm install -g vscode-langservers-extracted",
+    installHint: "Requires Node.js and npm",
+  },
+  {
+    id: "html",
+    name: "HTML",
+    description: "HTML language support",
+    command: ["vscode-html-language-server", "--stdio"],
+    installCommand: "npm install -g vscode-langservers-extracted",
+    installHint: "Requires Node.js and npm",
+  },
+  {
+    id: "eslint",
+    name: "ESLint",
+    description: "JavaScript/TypeScript linting",
+    command: ["vscode-eslint-language-server", "--stdio"],
+    installCommand: "npm install -g vscode-langservers-extracted",
+    installHint: "Requires Node.js and npm",
+  },
+  {
+    id: "docker",
+    name: "Dockerfile",
+    description: "Dockerfile language support",
+    command: ["docker-langserver", "--stdio"],
+    installCommand: "npm install -g dockerfile-language-server-nodejs",
+    installHint: "Requires Node.js and npm",
+  },
+  {
+    id: "yaml",
+    name: "YAML",
+    description: "YAML language support",
+    command: ["yaml-language-server", "--stdio"],
+    installCommand: "npm install -g yaml-language-server",
+    installHint: "Requires Node.js and npm",
+  },
+  {
+    id: "bash",
+    name: "Bash",
+    description: "Bash shell script support",
+    command: ["bash-language-server", "start"],
+    installCommand: "npm install -g bash-language-server",
+    installHint: "Requires Node.js and npm",
+  },
+  {
+    id: "lua",
+    name: "Lua",
+    description: "Lua language support",
+    command: ["lua-language-server"],
+    installCommand: "brew install lua-language-server  (macOS) or see https://luals.github.io",
+    installHint: "Install varies by platform — see https://luals.github.io",
+  },
+  {
+    id: "custom",
+    name: "Custom",
+    description: "Enter your own language server command",
+    command: [],
+    installCommand: "",
+    installHint: "You will enter the command manually",
+  },
+];
+
+type Page = "main" | "add" | "install" | "edit" | "delete" | "list" | "custom";
+
+interface Props {
+  theme: Theme;
+  servers: Record<string, LspServerConfig>;
+  onDone: () => void;
+  onSave: (servers: Record<string, LspServerConfig>, enabled: boolean) => void;
+}
+
+interface InstallState {
+  status: "idle" | "running" | "success" | "error";
+  output: string;
+}
+
+export function LspWizard({ theme, servers, onDone, onSave }: Props) {
+  const [page, setPage] = useState<Page>("main");
+  const [selectedPreset, setSelectedPreset] = useState<Preset | null>(null);
+  const [customCommand, setCustomCommand] = useState("");
+  const [customName, setCustomName] = useState("");
+  const [installState, setInstallState] = useState<InstallState>({ status: "idle", output: "" });
+  const [editKey, setEditKey] = useState<string | null>(null);
+
+  useInput((_input, key) => {
+    if (key.escape) {
+      if (page === "main") {
+        onDone();
+      } else if (page === "install" && installState.status === "running") {
+        // Don't allow escape while installing
+        return;
+      } else {
+        setPage("main");
+        setInstallState({ status: "idle", output: "" });
+      }
+    }
+  });
+
+  const runInstall = (command: string) => {
+    setInstallState({ status: "running", output: "Installing..." });
+
+    const child = spawn("bash", ["-lc", command], {
+      env: process.env,
+      timeout: 120000,
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout?.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString("utf8");
+    });
+
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString("utf8");
+    });
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        setInstallState({ status: "success", output: stdout || "Installed successfully." });
+      } else {
+        setInstallState({ status: "error", output: stderr || stdout || `Exit code: ${code}` });
+      }
+    });
+
+    child.on("error", (err) => {
+      setInstallState({ status: "error", output: err.message });
+    });
+  };
+
+  const handleAddPreset = (preset: Preset) => {
+    if (preset.id === "custom") {
+      setPage("custom");
+      return;
+    }
+    setSelectedPreset(preset);
+    setPage("install");
+  };
+
+  const handleConfirmInstall = () => {
+    if (!selectedPreset) return;
+    if (selectedPreset.installCommand) {
+      runInstall(selectedPreset.installCommand);
+    } else {
+      setInstallState({ status: "success", output: "No install command needed." });
+    }
+  };
+
+  const handleSavePreset = () => {
+    if (!selectedPreset) return;
+    const next = {
+      ...servers,
+      [selectedPreset.id]: {
+        command: selectedPreset.command,
+        enabled: true,
+      },
+    };
+    onSave(next, true);
+    setPage("main");
+    setSelectedPreset(null);
+    setInstallState({ status: "idle", output: "" });
+  };
+
+  const handleSaveCustom = () => {
+    if (!customName.trim() || !customCommand.trim()) return;
+    const next = {
+      ...servers,
+      [customName.trim()]: {
+        command: customCommand.trim().split(/\s+/),
+        enabled: true,
+      },
+    };
+    onSave(next, true);
+    setPage("main");
+    setCustomName("");
+    setCustomCommand("");
+  };
+
+  const handleDelete = (key: string) => {
+    const next = { ...servers };
+    delete next[key];
+    onSave(next, Object.keys(next).length > 0);
+    setPage("main");
+  };
+
+  const handleToggle = (key: string) => {
+    const next = {
+      ...servers,
+      [key]: { ...servers[key]!, enabled: !servers[key]!.enabled },
+    };
+    onSave(next, true);
+  };
+
+  // ─── Main menu ─────────────────────────────────────────────────────────────
+
+  if (page === "main") {
+    const items = [
+      { label: "Add server", value: "add", key: "add" },
+      { label: "Edit server", value: "edit", key: "edit" },
+      { label: "Delete server", value: "delete", key: "delete" },
+      { label: "List servers", value: "list", key: "list" },
+      { label: "(close)", value: "__close__", key: "__close__" },
+    ];
+
+    return (
+      <Box flexDirection="column" borderStyle="round" borderColor={theme.accent} paddingX={1}>
+        <Text color={theme.accent} bold>
+          LSP Servers
+        </Text>
+        <Text color={theme.info.color} dimColor={false}>
+          Arrow keys to navigate, Enter to select, Esc to close.
+        </Text>
+        <Box marginTop={1}>
+          <SelectInput
+            items={items}
+            onSelect={(item) => {
+              if (item.value === "__close__") {
+                onDone();
+              } else {
+                setPage(item.value as Page);
+              }
+            }}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  // ─── Add ───────────────────────────────────────────────────────────────────
+
+  if (page === "add") {
+    const items = PRESETS.map((p) => ({
+      label: `${p.name.padEnd(20)} ${p.description}`,
+      value: p.id,
+      key: p.id,
+    }));
+    items.push({ label: "← Back", value: "__back__", key: "__back__" });
+
+    return (
+      <Box flexDirection="column" borderStyle="round" borderColor={theme.accent} paddingX={1}>
+        <Text color={theme.accent} bold>
+          Add LSP Server
+        </Text>
+        <Text color={theme.info.color} dimColor={false}>
+          Select a language server to configure.
+        </Text>
+        <Box marginTop={1}>
+          <SelectInput
+            items={items}
+            onSelect={(item) => {
+              if (item.value === "__back__") {
+                setPage("main");
+              } else {
+                const preset = PRESETS.find((p) => p.id === item.value);
+                if (preset) handleAddPreset(preset);
+              }
+            }}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  // ─── Install ───────────────────────────────────────────────────────────────
+
+  if (page === "install" && selectedPreset) {
+    const isRunning = installState.status === "running";
+    const isDone = installState.status === "success" || installState.status === "error";
+    const isSuccess = installState.status === "success";
+
+    return (
+      <Box flexDirection="column" borderStyle="round" borderColor={theme.accent} paddingX={1}>
+        <Text color={theme.accent} bold>
+          Install {selectedPreset.name}
+        </Text>
+        <Text color={theme.info.color} dimColor={false}>
+          {selectedPreset.installHint}
+        </Text>
+        <Box marginTop={1} flexDirection="column">
+          <Text color={theme.info.color} dimColor={false}>
+            Command:
+          </Text>
+          <Text color={theme.accent}>{selectedPreset.installCommand || "(none required)"}</Text>
+        </Box>
+
+        {installState.output && (
+          <Box marginTop={1} flexDirection="column">
+            <Text color={isSuccess ? theme.accent : theme.error}>
+              {installState.output.slice(-500)}
+            </Text>
+          </Box>
+        )}
+
+        <Box marginTop={1}>
+          {!isDone ? (
+            <SelectInput
+              items={[
+                { label: isRunning ? "Installing..." : "Run install command", value: "run", key: "run" },
+                { label: "Skip install (already installed)", value: "skip", key: "skip" },
+                { label: "← Back", value: "__back__", key: "__back__" },
+              ]}
+              onSelect={(item) => {
+                if (item.value === "__back__") {
+                  setPage("add");
+                  setInstallState({ status: "idle", output: "" });
+                } else if (item.value === "run" && !isRunning) {
+                  handleConfirmInstall();
+                } else if (item.value === "skip") {
+                  setInstallState({ status: "success", output: "Skipped install." });
+                }
+              }}
+            />
+          ) : (
+            <SelectInput
+              items={[
+                { label: isSuccess ? "Save to config ✓" : "Save anyway", value: "save", key: "save" },
+                { label: "← Back", value: "__back__", key: "__back__" },
+              ]}
+              onSelect={(item) => {
+                if (item.value === "__back__") {
+                  setPage("add");
+                  setInstallState({ status: "idle", output: "" });
+                } else if (item.value === "save") {
+                  handleSavePreset();
+                }
+              }}
+            />
+          )}
+        </Box>
+
+        {isSuccess && (
+          <Box marginTop={1}>
+            <Text color={theme.accent}>
+              Server saved. Run /lsp reload to start it.
+            </Text>
+          </Box>
+        )}
+      </Box>
+    );
+  }
+
+  // ─── Custom ────────────────────────────────────────────────────────────────
+
+  if (page === "custom") {
+    return (
+      <Box flexDirection="column" borderStyle="round" borderColor={theme.accent} paddingX={1}>
+        <Text color={theme.accent} bold>
+          Custom LSP Server
+        </Text>
+        <Box marginTop={1} flexDirection="column">
+          <Text color={theme.info.color}>Name (e.g., my-server):</Text>
+          {/* We use a simple text display since ink-text-input would need more wiring */}
+          <Text color={theme.accent}>{customName || "(type below, press Enter)"}</Text>
+        </Box>
+        <Box marginTop={1} flexDirection="column">
+          <Text color={theme.info.color}>Command (space-separated):</Text>
+          <Text color={theme.accent}>{customCommand || "(type below, press Enter)"}</Text>
+        </Box>
+        <Box marginTop={1}>
+          <SelectInput
+            items={[
+              { label: customName && customCommand ? "Save" : "(enter name and command first)", value: "save", key: "save" },
+              { label: "← Back", value: "__back__", key: "__back__" },
+            ]}
+            onSelect={(item) => {
+              if (item.value === "__back__") {
+                setPage("add");
+              } else if (item.value === "save" && customName && customCommand) {
+                handleSaveCustom();
+              }
+            }}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  // ─── Edit ──────────────────────────────────────────────────────────────────
+
+  if (page === "edit") {
+    const keys = Object.keys(servers);
+    if (keys.length === 0) {
+      return (
+        <Box flexDirection="column" borderStyle="round" borderColor={theme.accent} paddingX={1}>
+          <Text color={theme.accent} bold>
+            Edit LSP Server
+          </Text>
+          <Text color={theme.info.color}>No servers configured.</Text>
+          <Box marginTop={1}>
+            <SelectInput
+              items={[{ label: "← Back", value: "__back__", key: "__back__" }]}
+              onSelect={() => setPage("main")}
+            />
+          </Box>
+        </Box>
+      );
+    }
+
+    const items = keys.map((k) => {
+      const s = servers[k]!;
+      const status = s.enabled !== false ? "enabled" : "disabled";
+      return {
+        label: `${k.padEnd(16)} ${status}  ${s.command.join(" ")}`,
+        value: k,
+        key: k,
+      };
+    });
+    items.push({ label: "← Back", value: "__back__", key: "__back__" });
+
+    return (
+      <Box flexDirection="column" borderStyle="round" borderColor={theme.accent} paddingX={1}>
+        <Text color={theme.accent} bold>
+          Edit LSP Server
+        </Text>
+        <Text color={theme.info.color} dimColor={false}>
+          Select a server to toggle enabled/disabled.
+        </Text>
+        <Box marginTop={1}>
+          <SelectInput
+            items={items}
+            onSelect={(item) => {
+              if (item.value === "__back__") {
+                setPage("main");
+              } else {
+                handleToggle(item.value);
+              }
+            }}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  // ─── Delete ────────────────────────────────────────────────────────────────
+
+  if (page === "delete") {
+    const keys = Object.keys(servers);
+    if (keys.length === 0) {
+      return (
+        <Box flexDirection="column" borderStyle="round" borderColor={theme.accent} paddingX={1}>
+          <Text color={theme.accent} bold>
+            Delete LSP Server
+          </Text>
+          <Text color={theme.info.color}>No servers configured.</Text>
+          <Box marginTop={1}>
+            <SelectInput
+              items={[{ label: "← Back", value: "__back__", key: "__back__" }]}
+              onSelect={() => setPage("main")}
+            />
+          </Box>
+        </Box>
+      );
+    }
+
+    const items = keys.map((k) => ({
+      label: `${k.padEnd(16)} ${servers[k]!.command.join(" ")}`,
+      value: k,
+      key: k,
+    }));
+    items.push({ label: "← Back", value: "__back__", key: "__back__" });
+
+    return (
+      <Box flexDirection="column" borderStyle="round" borderColor={theme.accent} paddingX={1}>
+        <Text color={theme.accent} bold>
+          Delete LSP Server
+        </Text>
+        <Text color={theme.info.color} dimColor={false}>
+          Select a server to remove from config.
+        </Text>
+        <Box marginTop={1}>
+          <SelectInput
+            items={items}
+            onSelect={(item) => {
+              if (item.value === "__back__") {
+                setPage("main");
+              } else {
+                handleDelete(item.value);
+              }
+            }}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  // ─── List ──────────────────────────────────────────────────────────────────
+
+  if (page === "list") {
+    const keys = Object.keys(servers);
+    return (
+      <Box flexDirection="column" borderStyle="round" borderColor={theme.accent} paddingX={1}>
+        <Text color={theme.accent} bold>
+          Configured LSP Servers
+        </Text>
+        {keys.length === 0 ? (
+          <Text color={theme.info.color}>No servers configured.</Text>
+        ) : (
+          <Box marginTop={1} flexDirection="column">
+            {keys.map((k) => {
+              const s = servers[k]!;
+              const status = s.enabled !== false ? "enabled" : "disabled";
+              return (
+                <Text key={k} color={theme.info.color}>
+                  {`  ${k.padEnd(16)} ${status}  ${s.command.join(" ")}`}
+                </Text>
+              );
+            })}
+          </Box>
+        )}
+        <Box marginTop={1}>
+          <SelectInput
+            items={[{ label: "← Back", value: "__back__", key: "__back__" }]}
+            onSelect={() => setPage("main")}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  return null;
+}

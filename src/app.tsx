@@ -77,6 +77,7 @@ import type { SaveCustomCommandOptions } from "./commands/save.js";
 import { CommandWizard } from "./ui/command-wizard.js";
 import { CommandPicker } from "./ui/command-picker.js";
 import { CommandList } from "./ui/command-list.js";
+import { LspWizard } from "./ui/lsp-wizard.js";
 
 interface Cfg {
   accountId: string;
@@ -281,6 +282,7 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
   const [commandPicker, setCommandPicker] = useState<{ mode: "edit" | "delete" } | null>(null);
   const [commandToDelete, setCommandToDelete] = useState<CustomCommand | null>(null);
   const [showCommandList, setShowCommandList] = useState(false);
+  const [showLspWizard, setShowLspWizard] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksStartedAt, setTasksStartedAt] = useState<number | null>(null);
   const [tasksStartTokens, setTasksStartTokens] = useState<number>(0);
@@ -1632,9 +1634,13 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
           void initLsp();
           return true;
         }
+        if (arg === "config" || arg === "") {
+          setShowLspWizard(true);
+          return true;
+        }
         setEvents((e) => [
           ...e,
-          { kind: "info", key: mkKey(), text: "usage: /lsp list | reload" },
+          { kind: "info", key: mkKey(), text: "usage: /lsp list | reload | config" },
         ]);
         return true;
       }
@@ -2196,6 +2202,29 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
             .map((c) => ({ name: c.name, description: c.description }))}
           onDone={() => setShowHelpMenu(false)}
           onCommand={handleHelpCommand}
+        />
+      </Box>
+    );
+  }
+
+  if (showLspWizard) {
+    return (
+      <Box flexDirection="column">
+        <LspWizard
+          theme={theme}
+          servers={cfg?.lspServers ?? {}}
+          onDone={() => setShowLspWizard(false)}
+          onSave={(servers, enabled) => {
+            setCfg((c) => (c ? { ...c, lspEnabled: enabled, lspServers: servers } : c));
+            if (cfg) {
+              void saveConfig({ ...cfg, lspEnabled: enabled, lspServers: servers }).catch(() => {});
+            }
+            setShowLspWizard(false);
+            setEvents((e) => [
+              ...e,
+              { kind: "info", key: mkKey(), text: `LSP config saved. Run /lsp reload to apply.` },
+            ]);
+          }}
         />
       </Box>
     );
