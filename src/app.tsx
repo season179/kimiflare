@@ -78,6 +78,7 @@ import { CommandWizard } from "./ui/command-wizard.js";
 import { CommandPicker } from "./ui/command-picker.js";
 import { CommandList } from "./ui/command-list.js";
 import { LspWizard } from "./ui/lsp-wizard.js";
+import { saveProjectLspConfig, type ResolvedLspConfig } from "./util/lsp-config.js";
 
 interface Cfg {
   accountId: string;
@@ -243,9 +244,21 @@ const EFFORT_DESCRIPTIONS: Record<ReasoningEffort, string> = {
   high: "high — deepest reasoning; slowest. Best for complex debugging, architecture, multi-file refactors.",
 };
 
-function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; initialUpdateResult?: UpdateCheckResult }) {
+function App({
+  initialCfg,
+  initialUpdateResult,
+  initialLspScope,
+  initialLspProjectPath,
+}: {
+  initialCfg: Cfg | null;
+  initialUpdateResult?: UpdateCheckResult;
+  initialLspScope: "project" | "global";
+  initialLspProjectPath: string | null;
+}) {
   const { exit } = useApp();
   const [cfg, setCfg] = useState<Cfg | null>(initialCfg);
+  const [lspScope, setLspScope] = useState<"project" | "global">(initialLspScope);
+  const [lspProjectPath, setLspProjectPath] = useState<string | null>(initialLspProjectPath);
   const [events, setRawEvents] = useState<ChatEvent[]>([]);
   const setEvents = useCallback(
     (updater: React.SetStateAction<ChatEvent[]>) => {
@@ -1619,16 +1632,19 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
       if (c === "/lsp") {
         if (arg === "list") {
           const servers = lspManagerRef.current.listActive();
+          const scopeLine = lspScope === "project" && lspProjectPath
+            ? ` (project: ${lspProjectPath})`
+            : " (global config)";
           if (servers.length === 0) {
             setEvents((e) => [
               ...e,
-              { kind: "info", key: mkKey(), text: "no LSP servers active" },
+              { kind: "info", key: mkKey(), text: `no LSP servers active${scopeLine}` },
             ]);
           } else {
             const lines = servers.map((s) => `  ${s.id} (${s.rootUri}) — ${s.state}, ${s.toolCount} tool${s.toolCount === 1 ? "" : "s"}`);
             setEvents((e) => [
               ...e,
-              { kind: "info", key: mkKey(), text: "LSP servers:\n" + lines.join("\n") },
+              { kind: "info", key: mkKey(), text: `LSP servers${scopeLine}:\n` + lines.join("\n") },
             ]);
           }
           return true;
@@ -1649,13 +1665,23 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
           });
           return true;
         }
+        if (arg === "scope") {
+          const scopeText = lspScope === "project" && lspProjectPath
+            ? `project scope: ${lspProjectPath}`
+            : "global scope: ~/.config/kimiflare/config.json";
+          setEvents((e) => [
+            ...e,
+            { kind: "info", key: mkKey(), text: scopeText },
+          ]);
+          return true;
+        }
         if (arg === "config" || arg === "") {
           setShowLspWizard(true);
           return true;
         }
         setEvents((e) => [
           ...e,
-          { kind: "info", key: mkKey(), text: "usage: /lsp list | reload | config" },
+          { kind: "info", key: mkKey(), text: "usage: /lsp list | reload | scope | config" },
         ]);
         return true;
       }
@@ -2228,17 +2254,35 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
         <LspWizard
           theme={theme}
           servers={cfg?.lspServers ?? {}}
+          currentScope={lspScope}
+          hasProjectDir={existsSync(join(process.cwd(), ".kimiflare"))}
           onDone={() => setShowLspWizard(false)}
-          onSave={(servers, enabled) => {
+          onSave={(servers, enabled, scope) => {
             setCfg((c) => (c ? { ...c, lspEnabled: enabled, lspServers: servers } : c));
-            if (cfg) {
+            setLspScope(scope);
+            if (scope === "project") {
+              void saveProjectLspConfig(process.cwd(), { lspEnabled: enabled, lspServers: servers })
+                .then((path) => {
+                  setLspProjectPath(path);
+                  setEvents((e) => [
+                    ...e,
+                    { kind: "info", key: mkKey(), text: `LSP config saved to project (${path}). Run /lsp reload to apply.` },
+                  ]);
+                })
+                .catch(() => {
+                  setEvents((e) => [
+                    ...e,
+                    { kind: "error", key: mkKey(), text: "Failed to save project LSP config." },
+                  ]);
+                });
+            } else if (cfg) {
               void saveConfig({ ...cfg, lspEnabled: enabled, lspServers: servers }).catch(() => {});
+              setEvents((e) => [
+                ...e,
+                { kind: "info", key: mkKey(), text: `LSP config saved to global config. Run /lsp reload to apply.` },
+              ]);
             }
             setShowLspWizard(false);
-            setEvents((e) => [
-              ...e,
-              { kind: "info", key: mkKey(), text: `LSP config saved. Run /lsp reload to apply.` },
-            ]);
           }}
         />
       </Box>
@@ -2425,9 +2469,22 @@ function App({ initialCfg, initialUpdateResult }: { initialCfg: Cfg | null; init
   );
 }
 
-export async function renderApp(cfg: Cfg | null, updateResult?: UpdateCheckResult) {
-  const instance = render(<App initialCfg={cfg} initialUpdateResult={updateResult} />, {
-    incrementalRendering: true,
-  });
+export async function renderApp(
+  cfg: Cfg | null,
+  updateResult?: UpdateCheckResult,
+  lspScope: "project" | "global" = "global",
+  lspProjectPath: string | null = null,
+) {
+  const instance = render(
+    <App
+      initialCfg={cfg}
+      initialUpdateResult={updateResult}
+      initialLspScope={lspScope}
+      initialLspProjectPath={lspProjectPath}
+    />,
+    {
+      incrementalRendering: true,
+    },
+  );
   await instance.waitUntilExit();
 }

@@ -103,6 +103,7 @@ const CATEGORIES: Category[] = [
       { command: "/lsp config", description: "add, edit, or remove language servers" },
       { command: "/lsp list", description: "list active LSP servers" },
       { command: "/lsp reload", description: "restart all configured LSP servers" },
+      { command: "/lsp scope", description: "show whether LSP config is project or global" },
     ],
   },
   {

@@ -122,13 +122,15 @@ const PRESETS: Preset[] = [
   },
 ];
 
-type Page = "main" | "add" | "install" | "custom-name" | "custom-command" | "edit" | "delete" | "list";
+type Page = "main" | "add" | "install" | "custom-name" | "custom-command" | "scope" | "edit" | "delete" | "list";
 
 interface Props {
   theme: Theme;
   servers: Record<string, LspServerConfig>;
+  currentScope: "project" | "global";
+  hasProjectDir: boolean;
   onDone: () => void;
-  onSave: (servers: Record<string, LspServerConfig>, enabled: boolean) => void;
+  onSave: (servers: Record<string, LspServerConfig>, enabled: boolean, scope: "project" | "global") => void;
 }
 
 interface InstallState {
@@ -136,12 +138,14 @@ interface InstallState {
   output: string;
 }
 
-export function LspWizard({ theme, servers, onDone, onSave }: Props) {
+export function LspWizard({ theme, servers, currentScope, hasProjectDir, onDone, onSave }: Props) {
   const [page, setPage] = useState<Page>("main");
   const [selectedPreset, setSelectedPreset] = useState<Preset | null>(null);
   const [customName, setCustomName] = useState("");
   const [customCommand, setCustomCommand] = useState("");
   const [installState, setInstallState] = useState<InstallState>({ status: "idle", output: "" });
+  const [pendingServers, setPendingServers] = useState<Record<string, LspServerConfig> | null>(null);
+  const [pendingEnabled, setPendingEnabled] = useState<boolean>(true);
 
   const runInstall = (command: string) => {
     setInstallState({ status: "running", output: "Installing..." });
@@ -202,10 +206,9 @@ export function LspWizard({ theme, servers, onDone, onSave }: Props) {
         enabled: true,
       },
     };
-    onSave(next, true);
-    setPage("main");
-    setSelectedPreset(null);
-    setInstallState({ status: "idle", output: "" });
+    setPendingServers(next);
+    setPendingEnabled(true);
+    setPage("scope");
   };
 
   const handleSaveCustom = () => {
@@ -219,16 +222,15 @@ export function LspWizard({ theme, servers, onDone, onSave }: Props) {
         enabled: true,
       },
     };
-    onSave(next, true);
-    setPage("main");
-    setCustomName("");
-    setCustomCommand("");
+    setPendingServers(next);
+    setPendingEnabled(true);
+    setPage("scope");
   };
 
   const handleDelete = (key: string) => {
     const next = { ...servers };
     delete next[key];
-    onSave(next, Object.keys(next).length > 0);
+    onSave(next, Object.keys(next).length > 0, currentScope);
     setPage("main");
   };
 
@@ -237,7 +239,19 @@ export function LspWizard({ theme, servers, onDone, onSave }: Props) {
       ...servers,
       [key]: { ...servers[key]!, enabled: !servers[key]!.enabled },
     };
-    onSave(next, true);
+    onSave(next, true, currentScope);
+  };
+
+  const handleScopeSelect = (scope: "project" | "global") => {
+    if (pendingServers) {
+      onSave(pendingServers, pendingEnabled, scope);
+    }
+    setPendingServers(null);
+    setSelectedPreset(null);
+    setCustomName("");
+    setCustomCommand("");
+    setInstallState({ status: "idle", output: "" });
+    setPage("main");
   };
 
   const mainItems = [
@@ -448,6 +462,49 @@ export function LspWizard({ theme, servers, onDone, onSave }: Props) {
           <SelectInput
             items={[{ label: "← Back", value: "__back__", key: "__back__" }]}
             onSelect={() => setPage("custom-name")}
+          />
+        </Box>
+      </Box>
+    );
+  }
+
+  // ─── Scope ─────────────────────────────────────────────────────────────────
+
+  if (page === "scope") {
+    const defaultToProject = hasProjectDir || currentScope === "project";
+    const items = [
+      {
+        label: defaultToProject ? "This project only (· current)" : "This project only",
+        value: "project",
+        key: "project",
+      },
+      {
+        label: defaultToProject ? "Global config" : "Global config (· current)",
+        value: "global",
+        key: "global",
+      },
+      { label: "← Back", value: "__back__", key: "__back__" },
+    ];
+
+    return (
+      <Box flexDirection="column" borderStyle="round" borderColor={theme.accent} paddingX={1}>
+        <Text color={theme.accent} bold>
+          Save LSP Config
+        </Text>
+        <Text color={theme.info.color} dimColor={false}>
+          Where should this server configuration be saved?
+        </Text>
+        <Box marginTop={1}>
+          <SelectInput
+            items={items}
+            onSelect={(item) => {
+              if (item.value === "__back__") {
+                setPage("main");
+                setPendingServers(null);
+              } else {
+                handleScopeSelect(item.value as "project" | "global");
+              }
+            }}
           />
         </Box>
       </Box>
