@@ -54,6 +54,18 @@ export async function loadProjectLspConfig(cwd: string): Promise<Partial<Pick<Ki
   }
 }
 
+async function ensureGitignore(cwd: string): Promise<void> {
+  const gitignorePath = join(cwd, ".gitignore");
+  const entry = `${PROJECT_CONFIG_DIR}/${PROJECT_LSP_FILE}`;
+  try {
+    const content = await readFile(gitignorePath, "utf8");
+    if (content.includes(entry)) return;
+    await writeFile(gitignorePath, content.trimEnd() + "\n" + entry + "\n", "utf8");
+  } catch {
+    // No .gitignore or can't read it — ignore
+  }
+}
+
 export async function saveProjectLspConfig(
   cwd: string,
   cfg: Partial<Pick<KimiConfig, "lspEnabled" | "lspServers">>,
@@ -62,6 +74,7 @@ export async function saveProjectLspConfig(
   await mkdir(dir, { recursive: true });
   const path = join(dir, PROJECT_LSP_FILE);
   await writeFile(path, JSON.stringify(cfg, null, 2), "utf8");
+  await ensureGitignore(cwd);
   return path;
 }
 
