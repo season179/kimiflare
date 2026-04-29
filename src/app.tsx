@@ -1696,14 +1696,6 @@ function App({
         ]);
         return true;
       }
-      if (c === "/community") {
-        openBrowser("https://discord.gg/aEuAUHNTK5");
-        setEvents((e) => [
-          ...e,
-          { kind: "info", key: mkKey(), text: "Opened Discord invite in your browser." },
-        ]);
-        return true;
-      }
       if (c === "/logout") {
         unlink(configPath()).catch(() => {});
         setEvents((e) => [
