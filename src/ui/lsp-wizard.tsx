@@ -279,11 +279,15 @@ export function LspWizard({ theme, servers, onDone, onSave }: Props) {
 
   if (page === "add") {
     const items = [
-      ...PRESETS.map((p) => ({
-        label: `${p.name.padEnd(20)} ${p.description}`,
-        value: p.id,
-        key: p.id,
-      })),
+      ...PRESETS.map((p) => {
+        const already = p.id in servers;
+        const marker = already ? " · configured" : "";
+        return {
+          label: `${p.name.padEnd(20)} ${p.description}${marker}`,
+          value: p.id,
+          key: p.id,
+        };
+      }),
       { label: "← Back", value: "__back__", key: "__back__" },
     ];
 
