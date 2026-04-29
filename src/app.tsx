@@ -79,6 +79,7 @@ import { CommandPicker } from "./ui/command-picker.js";
 import { CommandList } from "./ui/command-list.js";
 import { LspWizard } from "./ui/lsp-wizard.js";
 import { saveProjectLspConfig, type ResolvedLspConfig } from "./util/lsp-config.js";
+import { maybeLspNudge } from "./util/lsp-nudge.js";
 
 interface Cfg {
   accountId: string;
@@ -1875,6 +1876,13 @@ function App({
       }
 
       setEvents((e) => [...e, { kind: "user", key: mkKey(), text: display, images: images.length > 0 ? images : undefined }]);
+
+      // LSP nudge: if user references code files and LSP is not configured
+      const nudge = maybeLspNudge(display, cfg?.lspEnabled ?? false, cfg?.lspServers ?? {});
+      if (nudge) {
+        setEvents((e) => [...e, { kind: "info", key: mkKey(), text: nudge }]);
+      }
+
       messagesRef.current.push({ role: "user", content });
 
       // Recall artifacts before sending if compiled context is enabled
