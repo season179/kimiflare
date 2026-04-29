@@ -130,7 +130,6 @@ const CATEGORIES: Category[] = [
       { command: "/model", description: "show current model" },
       { command: "/update", description: "check for updates" },
       { command: "/hello", description: "send a voice note to the creator" },
-      { command: "/community", description: "join our Discord server" },
     ],
   },
   {
