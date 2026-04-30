@@ -34,7 +34,7 @@ import { ResumePicker } from "./ui/resume-picker.js";
 import { ThemePicker } from "./ui/theme-picker.js";
 import { TaskList } from "./ui/task-list.js";
 import type { Task } from "./tasks-state.js";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { ToolRender } from "./tools/registry.js";
 import { CustomTextInput } from "./ui/text-input.js";
@@ -80,6 +80,153 @@ import { CommandList } from "./ui/command-list.js";
 import { LspWizard } from "./ui/lsp-wizard.js";
 import { saveProjectLspConfig, type ResolvedLspConfig } from "./util/lsp-config.js";
 import { maybeLspNudge } from "./util/lsp-nudge.js";
+import fg from "fast-glob";
+import { FilePicker, type FilePickerItem } from "./ui/file-picker.js";
+import { readFileSync } from "node:fs";
+
+/**
+ * Build a comprehensive ignore list for the @ file mention picker.
+ * Combines common noise patterns (dependencies, build output, caches, etc.)
+ * with patterns read from the project's .gitignore file.
+ *
+ * All hardcoded patterns use the `** /` prefix so they match at any depth
+ * (e.g. `** /node_modules/ *` catches both root and nested node_modules).
+ */
+const MAX_GITIGNORE_SIZE = 1 * 1024 * 1024; // 1 MB
+
+export function buildFilePickerIgnoreList(cwd: string): string[] {
+  const hardcoded = [
+    // Dependencies
+    "**/node_modules/**",
+    "**/vendor/**",
+    "**/.bundle/**",
+    "**/bower_components/**",
+    // Version control
+    "**/.git/**",
+    "**/.svn/**",
+    "**/.hg/**",
+    // Build / output directories
+    "**/dist/**",
+    "**/build/**",
+    "**/out/**",
+    "**/public/**",
+    "**/.next/**",
+    "**/.nuxt/**",
+    "**/.svelte-kit/**",
+    "**/.vercel/**",
+    "**/.netlify/**",
+    "**/target/**",
+    "**/bin/**",
+    "**/obj/**",
+    "**/Debug/**",
+    "**/Release/**",
+    "**/.gradle/**",
+    // Caches
+    "**/.cache/**",
+    "**/.parcel-cache/**",
+    "**/.turbo/**",
+    "**/.eslintcache",
+    "**/.stylelintcache",
+    "**/.rpt2_cache/**",
+    "**/.rts2_cache/**",
+    // Temporary
+    "**/tmp/**",
+    "**/temp/**",
+    "**/*.tmp",
+    // Coverage
+    "**/coverage/**",
+    "**/.nyc_output/**",
+    // OS files
+    "**/.DS_Store",
+    "**/Thumbs.db",
+    // Logs
+    "**/*.log",
+    "**/logs/**",
+    // Lock files (auto-generated, usually huge)
+    "**/package-lock.json",
+    "**/yarn.lock",
+    "**/pnpm-lock.yaml",
+    "**/bun.lockb",
+    "**/Cargo.lock",
+    "**/Gemfile.lock",
+    "**/composer.lock",
+    "**/Pipfile.lock",
+    "**/poetry.lock",
+    "**/go.sum",
+    // Minified / source maps
+    "**/*.min.js",
+    "**/*.min.css",
+    "**/*.map",
+    // kimiflare internal
+    "**/.kimiflare/**",
+    // IDE (usually not relevant to mention)
+    "**/.idea/**",
+  ];
+
+  // Try to read .gitignore for project-specific ignores.
+  // Gitignore patterns are relative to the repo root and may match at any
+  // depth. We approximate that by prefixing with `** /`. Patterns that
+  // already start with `*` or `/` are handled carefully.
+  const gitignorePatterns: string[] = [];
+  try {
+    const gitignorePath = join(cwd, ".gitignore");
+    const stats = statSync(gitignorePath);
+    if (stats.size > MAX_GITIGNORE_SIZE) {
+      // Guardrail 1.4: skip oversized .gitignore files
+      return hardcoded;
+    }
+    const content = readFileSync(gitignorePath, "utf-8");
+    for (const line of content.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+
+      // Skip negation patterns — fast-glob ignore doesn't support them
+      if (trimmed.startsWith("!")) continue;
+
+      let pattern = trimmed;
+      const isAnchored = pattern.startsWith("/");
+      const isDir = pattern.endsWith("/");
+
+      // Remove leading slash for processing
+      if (isAnchored) pattern = pattern.slice(1);
+      // Remove trailing slash for processing
+      if (isDir) pattern = pattern.slice(0, -1);
+
+      // Skip patterns that are already wildcards or empty
+      if (!pattern) continue;
+
+      if (isAnchored) {
+        // Anchored patterns only match at root, so keep them relative to cwd
+        gitignorePatterns.push(isDir ? pattern + "/**" : pattern);
+      } else {
+        // Unanchored patterns match at any depth — prepend `**/`
+        gitignorePatterns.push(isDir ? "**/" + pattern + "/**" : "**/" + pattern);
+      }
+    }
+  } catch {
+    // No .gitignore found — that's fine
+  }
+
+  return [...hardcoded, ...gitignorePatterns];
+}
+
+export function filterPickerItems(items: FilePickerItem[], query: string): FilePickerItem[] {
+  const q = query.toLowerCase();
+  return items.filter((item) => item.name.toLowerCase().includes(q)).slice(0, 50);
+}
+
+export function shouldOpenMentionPicker(
+  input: string,
+  cursorOffset: number,
+  pickerCancelOffset: number | null,
+): boolean {
+  if (pickerCancelOffset === cursorOffset) return false;
+  if (cursorOffset > 0 && input[cursorOffset - 1] === "@") {
+    const beforeAt = cursorOffset - 2;
+    return beforeAt < 0 || /\s/.test(input[beforeAt]!);
+  }
+  return false;
+}
 
 interface Cfg {
   accountId: string;
@@ -109,6 +256,7 @@ interface Cfg {
   lspEnabled?: boolean;
   lspServers?: Record<string, { command: string[]; env?: Record<string, string>; enabled?: boolean; rootPatterns?: string[] }>;
   costAttribution?: boolean;
+  filePicker?: boolean;
 }
 
 function gatewayFromConfig(cfg: Cfg): AiGatewayOptions | undefined {
@@ -285,6 +433,7 @@ function App({
 
   const [mode, setMode] = useState<Mode>("edit");
   const [codeMode, setCodeMode] = useState<boolean>(initialCfg?.codeMode ?? false);
+  const filePickerEnabled = initialCfg?.filePicker ?? false;
   const [effort, setEffort] = useState<ReasoningEffort>(
     initialCfg?.reasoningEffort ?? DEFAULT_REASONING_EFFORT,
   );
@@ -305,6 +454,12 @@ function App({
   const [verbose, setVerbose] = useState(false);
   const [hasUpdate, setHasUpdate] = useState(initialUpdateResult?.hasUpdate ?? false);
   const [latestVersion, setLatestVersion] = useState<string | null>(initialUpdateResult?.latestVersion ?? null);
+
+  // File mention picker state
+  const [cursorOffset, setCursorOffset] = useState(0);
+  const [pickerItems, setPickerItems] = useState<FilePickerItem[]>([]);
+  const [pickerSelected, setPickerSelected] = useState(0);
+  const [pickerAnchor, setPickerAnchor] = useState<number | null>(null);
 
   const cacheStableRef = useRef(initialCfg?.cacheStablePrompts !== false);
   const messagesRef = useRef<ChatMessage[]>(
@@ -340,6 +495,114 @@ function App({
   const pendingTextRef = useRef<Map<number, { text: string; reasoning: string }>>(new Map());
   const flushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const customCommandsRef = useRef<CustomCommand[]>([]);
+  const pickerCancelRef = useRef<number | null>(null);
+
+  // ── File mention picker logic ────────────────────────────────────────────
+  const mentionState = React.useMemo(() => {
+    if (pickerAnchor === null) return null;
+    const query = input.slice(pickerAnchor + 1, cursorOffset);
+    return { query, anchor: pickerAnchor };
+  }, [input, cursorOffset, pickerAnchor]);
+
+  const filteredPickerItems = React.useMemo(() => {
+    if (!mentionState) return [];
+    return filterPickerItems(pickerItems, mentionState.query);
+  }, [pickerItems, mentionState]);
+
+  // Detect @ mention opening/closing
+  useEffect(() => {
+    if (pickerAnchor !== null) {
+      // If cursor moved before anchor, close picker
+      if (cursorOffset < pickerAnchor) {
+        setPickerAnchor(null);
+        return;
+      }
+      // If the @ was deleted, close picker
+      if (input[pickerAnchor] !== "@") {
+        setPickerAnchor(null);
+        return;
+      }
+      // If user typed a space inside the mention query, close picker
+      const query = input.slice(pickerAnchor + 1, cursorOffset);
+      if (query.includes(" ")) {
+        setPickerAnchor(null);
+        return;
+      }
+      return;
+    }
+
+    // Prevent immediate reopen after cancel at the same cursor position
+    if (pickerCancelRef.current === cursorOffset) {
+      pickerCancelRef.current = null;
+      return;
+    }
+
+    // Look for @ just before cursor (only when feature flag is enabled)
+    if (filePickerEnabled && shouldOpenMentionPicker(input, cursorOffset, pickerCancelRef.current)) {
+      setPickerAnchor(cursorOffset - 1);
+      setPickerSelected(0);
+      // Load files lazily on first open
+      if (pickerItems.length === 0) {
+        const cwd = process.cwd();
+        void fg("**/*", {
+          cwd,
+          ignore: buildFilePickerIgnoreList(cwd),
+          dot: false,
+          absolute: false,
+          onlyFiles: false,
+          markDirectories: true,
+        } as fg.Options)
+          .then((entries) => {
+            const strings = (entries as string[]).slice(0, 300);
+            const items: FilePickerItem[] = strings.map((e) => ({
+              name: e.endsWith("/") ? e.slice(0, -1) : e,
+              isDirectory: e.endsWith("/"),
+            }));
+            // Sort directories first, then alphabetically
+            items.sort((a, b) => {
+              if (a.isDirectory && !b.isDirectory) return -1;
+              if (!a.isDirectory && b.isDirectory) return 1;
+              return a.name.localeCompare(b.name);
+            });
+            setPickerItems(items);
+          })
+          .catch(() => {
+            setPickerItems([]);
+          });
+      }
+    }
+  }, [input, cursorOffset, pickerAnchor, pickerItems.length, filePickerEnabled]);
+
+  // Clamp selected index when filtered list changes
+  useEffect(() => {
+    if (pickerAnchor !== null) {
+      setPickerSelected((prev) => Math.min(prev, Math.max(0, filteredPickerItems.length - 1)));
+    }
+  }, [filteredPickerItems.length, pickerAnchor]);
+
+  const handlePickerUp = useCallback(() => {
+    setPickerSelected((i) => Math.max(0, i - 1));
+  }, []);
+
+  const handlePickerDown = useCallback(() => {
+    setPickerSelected((i) => Math.min(filteredPickerItems.length - 1, i + 1));
+  }, [filteredPickerItems.length]);
+
+  const handlePickerSelect = useCallback(() => {
+    if (!mentionState || filteredPickerItems.length === 0) return;
+    const item = filteredPickerItems[pickerSelected];
+    if (!item) return;
+    const insert = item.name + (item.isDirectory ? "/" : " ");
+    const newInput = input.slice(0, mentionState.anchor) + insert + input.slice(cursorOffset);
+    setInput(newInput);
+    setCursorOffset(mentionState.anchor + insert.length);
+    setPickerAnchor(null);
+  }, [mentionState, filteredPickerItems, pickerSelected, input, cursorOffset]);
+
+  const handlePickerCancel = useCallback(() => {
+    pickerCancelRef.current = cursorOffset;
+    setPickerAnchor(null);
+  }, [cursorOffset]);
 
   useEffect(() => {
     if (!cfg) return;
@@ -2533,6 +2796,14 @@ function App({
             gatewayMeta={gatewayMeta}
             codeMode={codeMode}
           />
+          {pickerAnchor !== null && (
+            <FilePicker
+              items={filteredPickerItems}
+              selectedIndex={pickerSelected}
+              theme={theme}
+              query={mentionState?.query ?? ""}
+            />
+          )}
           <Box marginTop={1}>
             <Text color={theme.accent}>› </Text>
             <CustomTextInput
@@ -2540,6 +2811,13 @@ function App({
               onChange={setInput}
               onSubmit={submit}
               enablePaste
+              cursorOffset={cursorOffset}
+              onCursorChange={setCursorOffset}
+              pickerActive={pickerAnchor !== null}
+              onPickerUp={handlePickerUp}
+              onPickerDown={handlePickerDown}
+              onPickerSelect={handlePickerSelect}
+              onPickerCancel={handlePickerCancel}
               onHistoryUp={() => {
                 if (history.length === 0) return;
                 if (historyIndex === -1) {

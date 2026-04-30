@@ -12,6 +12,13 @@ interface Props {
   focus?: boolean;
   mask?: string;
   enablePaste?: boolean;
+  cursorOffset?: number;
+  onCursorChange?: (offset: number) => void;
+  pickerActive?: boolean;
+  onPickerUp?: () => void;
+  onPickerDown?: () => void;
+  onPickerSelect?: () => void;
+  onPickerCancel?: () => void;
 }
 
 const PASTE_CHAR_THRESHOLD = 200;
@@ -53,14 +60,29 @@ export function CustomTextInput({
   focus = true,
   mask,
   enablePaste = false,
+  cursorOffset: controlledCursor,
+  onCursorChange,
+  pickerActive = false,
+  onPickerUp,
+  onPickerDown,
+  onPickerSelect,
+  onPickerCancel,
 }: Props) {
-  const [cursorOffset, setCursorOffset] = useState(value.length);
+  const [internalCursor, setInternalCursor] = useState(value.length);
+  const cursorOffset = controlledCursor ?? internalCursor;
+  const setCursorOffset = (offset: number) => {
+    setInternalCursor(offset);
+    onCursorChange?.(offset);
+  };
   const pastesRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     if (!focus) return;
-    setCursorOffset((prev) => (prev > value.length ? value.length : prev));
-  }, [value, focus]);
+    const next = cursorOffset > value.length ? value.length : cursorOffset;
+    if (next !== cursorOffset) {
+      setCursorOffset(next);
+    }
+  }, [value, focus, cursorOffset]);
 
   useInput(
     (input, key) => {
@@ -70,6 +92,25 @@ export function CustomTextInput({
       if (key.ctrl && input === "r") return;
       if (key.ctrl && input === "o") return;
       if (key.tab) return;
+
+      if (pickerActive) {
+        if (key.upArrow) {
+          onPickerUp?.();
+          return;
+        }
+        if (key.downArrow) {
+          onPickerDown?.();
+          return;
+        }
+        if (key.return) {
+          onPickerSelect?.();
+          return;
+        }
+        if (key.escape) {
+          onPickerCancel?.();
+          return;
+        }
+      }
 
       if (key.return) {
         let full = value;
