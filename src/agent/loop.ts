@@ -6,6 +6,7 @@ import { sanitizeString, stableStringify, stripOldImages } from "./messages.js";
 import type { ChatMessage, ToolCall, Usage } from "./messages.js";
 import type { Task } from "../tasks-state.js";
 import type { MemoryManager } from "../memory/manager.js";
+import type { AgentRole } from "./agent-session.js";
 import { logTurnDebug, analyzePrompt } from "../cost-debug.js";
 import { stripHistoricalReasoning } from "./strip-reasoning.js";
 import { generateTypeScriptApi, runInSandbox } from "../code-mode/index.js";
@@ -53,7 +54,7 @@ export interface AgentTurnOpts {
   /** Per-agent anti-loop guard state. If provided, runAgentTurn reads from and writes to this array. */
   recentToolCalls?: string[];
   /** Agent role for cost tracking. */
-  agentRole?: string;
+  agentRole?: AgentRole;
 }
 
 const codeModeApiCache = new Map<string, string>();
@@ -112,6 +113,17 @@ export async function runAgentTurn(opts: AgentTurnOpts): Promise<void> {
   const recentToolCalls = opts.recentToolCalls ?? [];
   const LOOP_WINDOW = 8;
   const LOOP_THRESHOLD = 2; // 3rd identical call triggers the guardrail
+
+  // Web-fetch anti-loop: track domains and URL patterns to prevent research spirals
+  const webFetchHistory: { url: string; domain: string }[] = [];
+  const MAX_WEB_FETCH_PER_TURN = 5;
+  const WEB_FETCH_DOMAIN_THRESHOLD = 2; // 3rd fetch to same domain triggers warning
+
+  // Budget tracking for research-agent self-assessment prompts
+  let totalToolCallsThisTurn = 0;
+  const BUDGET_CHECK_INTERVAL = 3;
+  const SOFT_BUDGET = 5;
+  const HARD_BUDGET = 15;
 
   for (let iter = 0; iter < max; iter++) {
     turn++;
@@ -288,6 +300,63 @@ export async function runAgentTurn(opts: AgentTurnOpts): Promise<void> {
         continue;
       }
 
+      // Web-fetch spiral guardrail
+      if (tc.function.name === "web_fetch") {
+        const args = JSON.parse(tc.function.arguments || "{}") as { url?: string };
+        const url = args.url || "";
+        try {
+          const domain = new URL(url).hostname;
+          const domainCount = webFetchHistory.filter((h) => h.domain === domain).length;
+          const totalWebFetches = webFetchHistory.length;
+
+          if (totalWebFetches >= MAX_WEB_FETCH_PER_TURN) {
+            const warning = `Research budget exceeded: you have already made ${MAX_WEB_FETCH_PER_TURN} web requests this turn. Synthesize what you have learned instead of fetching more pages.`;
+            const budgetResult: ToolResult = {
+              tool_call_id: tc.id,
+              name: "web_fetch",
+              content: warning,
+              ok: false,
+            };
+            toolResults.push(budgetResult);
+            opts.messages.push({
+              role: "tool",
+              tool_call_id: tc.id,
+              content: sanitizeString(warning),
+              name: "web_fetch",
+            });
+            opts.callbacks.onToolResult?.(budgetResult);
+            recentToolCalls.push(loopSignature);
+            if (recentToolCalls.length > LOOP_WINDOW) recentToolCalls.shift();
+            continue;
+          }
+
+          if (domainCount >= WEB_FETCH_DOMAIN_THRESHOLD) {
+            const warning = `Loop detected: you have fetched from ${domain} multiple times. Consider a different approach or synthesize existing findings.`;
+            const loopResult: ToolResult = {
+              tool_call_id: tc.id,
+              name: "web_fetch",
+              content: warning,
+              ok: false,
+            };
+            toolResults.push(loopResult);
+            opts.messages.push({
+              role: "tool",
+              tool_call_id: tc.id,
+              content: sanitizeString(warning),
+              name: "web_fetch",
+            });
+            opts.callbacks.onToolResult?.(loopResult);
+            recentToolCalls.push(loopSignature);
+            if (recentToolCalls.length > LOOP_WINDOW) recentToolCalls.shift();
+            continue;
+          }
+
+          webFetchHistory.push({ url, domain });
+        } catch {
+          // Invalid URL, let it fail normally
+        }
+      }
+
       if (codeMode && tc.function.name === "execute_code") {
         const args = JSON.parse(tc.function.arguments || "{}") as { code?: string; reasoning?: string };
         const code = args.code || "";
@@ -351,7 +420,21 @@ export async function runAgentTurn(opts: AgentTurnOpts): Promise<void> {
         opts.callbacks.onToolResult?.(result);
         recentToolCalls.push(loopSignature);
         if (recentToolCalls.length > LOOP_WINDOW) recentToolCalls.shift();
+        totalToolCallsThisTurn++;
       }
+    }
+
+    // Budget self-assessment: inject reminder after every N tool calls
+    if (totalToolCallsThisTurn > 0 && totalToolCallsThisTurn % BUDGET_CHECK_INTERVAL === 0) {
+      let budgetMsg = "";
+      if (totalToolCallsThisTurn >= HARD_BUDGET) {
+        budgetMsg = `BUDGET CHECK: You have made ${totalToolCallsThisTurn} tool calls. This is the substantial-question budget. Produce your deliverable now unless you can name a specific gap that would change the recommendation.`;
+      } else if (totalToolCallsThisTurn >= SOFT_BUDGET) {
+        budgetMsg = `BUDGET CHECK: You have made ${totalToolCallsThisTurn} tool calls. If this is a routine question, produce your deliverable now. If substantial, justify the next call in one sentence.`;
+      } else {
+        budgetMsg = `BUDGET CHECK: You have made ${totalToolCallsThisTurn} tool calls. Assess: is the next call worth more than what you already have? If yes, justify in one sentence. If no, produce your deliverable.`;
+      }
+      opts.messages.push({ role: "system", content: budgetMsg });
     }
 
     if (opts.sessionId && lastUsage) {
@@ -368,7 +451,11 @@ export async function runAgentTurn(opts: AgentTurnOpts): Promise<void> {
     }
   }
 
-  throw new Error(`kimiflare: tool iteration limit reached (${opts.maxToolIterations ?? 50})`);
+  // Tool iteration limit reached: commit a graceful pause message so the agent
+  // retains context when the user says "go on".
+  const pauseMsg = `Paused after ${opts.maxToolIterations ?? 50} tool calls. The user may say "go on" to continue. If you have a partial deliverable (Research Brief, Implementation Notes, etc.), include it in your next response.`;
+  opts.messages.push({ role: "system", content: pauseMsg });
+  throw new Error(`kimiflare: tool iteration limit reached (${opts.maxToolIterations ?? 50}). Say "go on" to continue, or ask me to focus on a specific area.`);
 }
 
 function validateToolArguments(raw: string): string {
