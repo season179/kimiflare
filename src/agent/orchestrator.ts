@@ -136,6 +136,19 @@ export class AgentOrchestrator {
     return null;
   }
 
+  /** Extract the last assistant message content from a session.
+   *  Returns the full text in its entirety — no truncation, no summarization.
+   *  If the agent has no text content, falls back to synthesis. */
+  private extractDeliverable(session: AgentSession): string | null {
+    for (let i = session.messages.length - 1; i >= 0; i--) {
+      const m = session.messages[i]!;
+      if (m.role === "assistant" && typeof m.content === "string" && m.content.trim().length > 0) {
+        return m.content;
+      }
+    }
+    return null;
+  }
+
   private getToolsForRole(role: AgentRole): ToolSpec[] {
     const base = getAgentTools(role, this.opts.customAgents);
     // LSP tools are additive if available
@@ -316,16 +329,121 @@ export class AgentOrchestrator {
     // Detect hand_off requests from the agent and trigger orchestrated hand-off
     const handOffTarget = this.detectHandOff(session.messages);
     if (handOffTarget && handOffTarget !== this.activeRole) {
-      const summary = await this.synthesizeHandoff(this.activeRole, handOffTarget);
+      const fromRole = this.activeRole;
+      const fromSession = this.sessions.get(fromRole)!;
+
+      // Prefer the agent's actual deliverable (Brief, Plan, etc.) over a lossy synthesis
+      const deliverable = this.extractDeliverable(fromSession);
+      let handoffContent = "";
+      if (deliverable) {
+        handoffContent = `[hand-off from ${fromRole} agent — agent requested hand-off]\n\nThe ${fromRole} agent completed its work. Here is their full deliverable:\n\n${deliverable}`;
+      } else {
+        const summary = await this.synthesizeHandoff(fromRole, handOffTarget);
+        handoffContent = `[hand-off from ${fromRole} agent — agent requested hand-off]\n${summary}`;
+      }
+
       this.activeRole = handOffTarget;
       const newSession = this.getActiveSession();
-      if (summary) {
+      if (handoffContent) {
         newSession.messages.push({
           role: "system",
-          content: `[hand-off from ${this.activeRole} agent — agent requested hand-off]\n${summary}`,
+          content: handoffContent,
         });
       }
+      // Carry the original user message into the target session so the agent
+      // has context on what to do — otherwise it sees only the summary and
+      // may ask "what should I do?" instead of acting.
+      newSession.messages.push(userMessage);
       this.turnCounts.set(handOffTarget, 0);
+
+      // Run the target agent immediately so the user sees continuous progress
+      const targetTools = this.getToolsForRole(this.activeRole);
+      const targetCustomAgent = this.opts.customAgents?.find((a) => a.name === this.activeRole);
+      const targetConfig = this.resolveAgentConfig(this.activeRole);
+      const targetModel = targetCustomAgent?.model ?? targetConfig.model ?? this.opts.model;
+      const targetReasoning = targetCustomAgent?.reasoningEffort ?? targetConfig.reasoningEffort ?? this.opts.reasoningEffort;
+      if (targetCustomAgent?.systemPrompt && !newSession.messages.some((m) => m.role === "system" && m.content === targetCustomAgent.systemPrompt)) {
+        newSession.messages.unshift({
+          role: "system",
+          content: targetCustomAgent.systemPrompt,
+        });
+      }
+      await runAgentTurn({
+        accountId: this.opts.accountId,
+        apiToken: this.opts.apiToken,
+        model: targetModel,
+        gateway: this.opts.gateway,
+        messages: newSession.messages,
+        tools: [...targetTools, ...this.opts.mcpTools],
+        executor: this.opts.executor,
+        cwd: this.opts.cwd,
+        signal: this.opts.signal,
+        reasoningEffort: targetReasoning,
+        coauthor: this.opts.coauthor,
+        sessionId: this.opts.sessionId,
+        memoryManager: this.opts.memoryManager,
+        keepLastImageTurns: this.opts.keepLastImageTurns,
+        codeMode: this.opts.codeMode,
+        onFileChange: this.opts.onFileChange,
+        callbacks: this.opts.callbacks,
+        recentToolCalls: newSession.recentToolCalls,
+        agentRole: this.activeRole,
+      });
+      newSession.recentToolCalls = newSession.recentToolCalls.slice(-8);
+    }
+
+    // Implicit handoff guarantee: if a specialist produced a deliverable but
+    // never called hand_off, auto-handoff to generalist so the workflow doesn't stall.
+    if (!handOffTarget && this.activeRole !== "generalist") {
+      const deliverable = this.extractDeliverable(session);
+      if (deliverable && deliverable.length >= 300) {
+        const fromRole = this.activeRole;
+        const handoffContent = `[hand-off from ${fromRole} agent — auto-detected completion (hand_off tool was not called)]\n\nThe ${fromRole} agent completed its work. Here is their full deliverable:\n\n${deliverable}`;
+
+        this.activeRole = "generalist";
+        const newSession = this.getActiveSession();
+        newSession.messages.push({
+          role: "system",
+          content: handoffContent,
+        });
+        newSession.messages.push(userMessage);
+        this.turnCounts.set("generalist", 0);
+
+        // Run the generalist immediately so the user sees continuous progress
+        const targetTools = this.getToolsForRole(this.activeRole);
+        const targetCustomAgent = this.opts.customAgents?.find((a) => a.name === this.activeRole);
+        const targetConfig = this.resolveAgentConfig(this.activeRole);
+        const targetModel = targetCustomAgent?.model ?? targetConfig.model ?? this.opts.model;
+        const targetReasoning = targetCustomAgent?.reasoningEffort ?? targetConfig.reasoningEffort ?? this.opts.reasoningEffort;
+        if (targetCustomAgent?.systemPrompt && !newSession.messages.some((m) => m.role === "system" && m.content === targetCustomAgent.systemPrompt)) {
+          newSession.messages.unshift({
+            role: "system",
+            content: targetCustomAgent.systemPrompt,
+          });
+        }
+        await runAgentTurn({
+          accountId: this.opts.accountId,
+          apiToken: this.opts.apiToken,
+          model: targetModel,
+          gateway: this.opts.gateway,
+          messages: newSession.messages,
+          tools: [...targetTools, ...this.opts.mcpTools],
+          executor: this.opts.executor,
+          cwd: this.opts.cwd,
+          signal: this.opts.signal,
+          reasoningEffort: targetReasoning,
+          coauthor: this.opts.coauthor,
+          sessionId: this.opts.sessionId,
+          memoryManager: this.opts.memoryManager,
+          keepLastImageTurns: this.opts.keepLastImageTurns,
+          codeMode: this.opts.codeMode,
+          onFileChange: this.opts.onFileChange,
+          callbacks: this.opts.callbacks,
+          recentToolCalls: newSession.recentToolCalls,
+          agentRole: this.activeRole,
+        });
+        newSession.recentToolCalls = newSession.recentToolCalls.slice(-8);
+      }
     }
 
     // Increment turn count
